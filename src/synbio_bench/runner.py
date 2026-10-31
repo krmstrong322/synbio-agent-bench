@@ -26,6 +26,7 @@ from langchain_core.callbacks import get_usage_metadata_callback
 from langchain_core.messages import AIMessage, messages_to_dict
 from langgraph.errors import GraphRecursionError
 
+from .cost import estimate_cost
 from .origami.agent import build_agent, make_model
 from .origami.oxdna import OxDNAConfig, config_from_env
 from .origami.scoring import evaluate_submission
@@ -110,9 +111,9 @@ def run_agent(task: dict, model_cfg: dict, oxdna: OxDNAConfig, agent_cfg: dict, 
         tokens=_usage_totals(usage),
         final_message=(ai[-1].text if ai else "")[:4000],
     )
-    if price := model_cfg.get("price_per_mtok"):
-        t = info["tokens"]
-        info["cost_usd"] = round((t["input_tokens"] * price["input"] + t["output_tokens"] * price["output"]) / 1e6, 4)
+    if cost := estimate_cost(usage, model_cfg.get("price_per_mtok")):
+        info["cost"] = cost
+        info["cost_usd"] = cost["total_usd"]
     return info
 
 

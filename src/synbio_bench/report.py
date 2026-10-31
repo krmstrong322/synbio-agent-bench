@@ -11,6 +11,8 @@ from pathlib import Path
 
 import yaml
 
+from .cost import estimate_cost
+
 ROOT = Path(__file__).resolve().parents[2]
 
 COLUMNS = [
@@ -18,6 +20,18 @@ COLUMNS = [
     "shape_score", "bp_fraction_mean", "rmsf_mean_nm", "rmsd_to_design_nm", "initial_stretched_bonds",
     "simulations_used", "n_model_calls", "input_tokens", "output_tokens", "cost_usd", "wall_time_s", "sim_runner",
 ]
+
+
+def with_cost(r: dict, prices: dict[str, dict]) -> dict:
+    """Price a run with the current models.yaml rates (so older runs and price changes are covered)."""
+    if cost := estimate_cost(r.get("usage") or {}, prices.get(r["model"])):
+        r["cost"], r["cost_usd"] = cost, cost["total_usd"]
+    return r
+
+
+def load_prices(models_path: str | Path) -> dict[str, dict]:
+    models = yaml.safe_load(Path(models_path).read_text())["models"]
+    return {m["id"]: m["price_per_mtok"] for m in models if m.get("price_per_mtok")}
 
 
 def flatten(r: dict) -> dict:
@@ -61,7 +75,8 @@ def _ended(rs: list[dict]) -> str:
 def cmd_report(args: argparse.Namespace) -> None:
     exp = yaml.safe_load(Path(args.experiment).read_text())
     root = ROOT / "runs" / exp["name"]
-    rows = [flatten(json.loads(p.read_text())) for p in sorted(root.glob("*/*/rep*/result.json"))]
+    prices = load_prices(args.models)
+    rows = [flatten(with_cost(json.loads(p.read_text()), prices)) for p in sorted(root.glob("*/*/rep*/result.json"))]
     if not rows:
         print(f"no graded runs under {root}")
         return
@@ -75,8 +90,8 @@ def cmd_report(args: argparse.Namespace) -> None:
         groups[(r["task"], r["model"])].append(r)
     lines = [
         f"# {exp['name']}: results", "",
-        "| task | model | n | ended | valid | overall | spec | bp formed | shape IoU | RMSF nm | tokens in/out (k) | time min |",
-        "|---|---|---|---|---|---|---|---|---|---|---|---|",
+        "| task | model | n | ended | valid | overall | spec | bp formed | shape IoU | RMSF nm | tokens in/out (k) | cost $ | time min |",
+        "|---|---|---|---|---|---|---|---|---|---|---|---|---|",
     ]
     for (task, model), rs in sorted(groups.items()):
         lines.append(
@@ -85,8 +100,12 @@ def cmd_report(args: argparse.Namespace) -> None:
             f"| {_ms([r['bp_fraction_mean'] for r in rs])} | {_ms([r['shape_score'] for r in rs])} "
             f"| {_ms([r['rmsf_mean_nm'] for r in rs])} "
             f"| {_ms([_k(r['input_tokens']) for r in rs], 0)} / {_ms([_k(r['output_tokens']) for r in rs], 0)} "
+            f"| {_ms([r['cost_usd'] for r in rs], 3)} "
             f"| {_ms([r['wall_time_s'] / 60 if r['wall_time_s'] else None for r in rs], 1)} |"
         )
+    costs = [r["cost_usd"] for r in rows if r["cost_usd"] is not None]
+    if costs:
+        lines += ["", f"Estimated API cost across these runs: **${sum(costs):.3f}** (cache-aware, from configs/models.yaml prices)."]
     if any(r["sim_runner"] == "mock" for r in rows):
         lines += ["", "**Warning:** some runs were graded with the mock oxDNA runner; their sim scores are synthetic."]
     (root / "summary.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
@@ -95,7 +114,7 @@ def cmd_report(args: argparse.Namespace) -> None:
     if not args.no_html:
         from .html_report import write_html
 
-        out = write_html(root, exp, lines, embed=args.embed, figures=not args.no_figures)
+        out = write_html(root, exp, lines, embed=args.embed, figures=not args.no_figures, prices=prices)
         print(f"wrote {out}")
 
 

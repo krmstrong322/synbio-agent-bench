@@ -74,6 +74,7 @@ def _card(run_dir: Path, info: dict, root: Path, embed: bool, figures: bool) -> 
         ("spec", g.get("spec_score")), ("bp formed", g.get("bp_fraction_mean")), ("shape IoU", g.get("shape_score")),
         ("RMSF nm", g.get("rmsf_mean_nm")), ("sims used", info.get("simulations_used")),
         ("tokens in/out k", f'{(t.get("input_tokens") or 0) / 1000:.0f} / {(t.get("output_tokens") or 0) / 1000:.0f}' if t else None),
+        ("cost $", f'{info["cost_usd"]:.3f}' if info.get("cost_usd") is not None else None),
         ("time min", (info.get("wall_time_s") or 0) / 60 if info.get("wall_time_s") else None),
     ]
     body = [head, '<div class="metrics">' + "".join(f"<span>{k} <b>{_fmt(v, 1 if k == 'time min' else 2)}</b></span>" for k, v in metrics if v is not None) + "</div>"]
@@ -109,13 +110,19 @@ def _card(run_dir: Path, info: dict, root: Path, embed: bool, figures: bool) -> 
     return '<div class="card">' + "\n".join(body) + "</div>"
 
 
-def write_html(root: Path, exp: dict, summary_lines: list[str], embed: bool = False, figures: bool = True) -> Path:
+def write_html(
+    root: Path, exp: dict, summary_lines: list[str], embed: bool = False, figures: bool = True,
+    prices: dict[str, dict] | None = None,
+) -> Path:
+    from .report import with_cost
+
     results = sorted(root.glob("*/*/rep*/result.json"))
     by_task: dict[str, list[tuple[Path, dict]]] = {}
     for p in results:
-        info = json.loads(p.read_text())
+        info = with_cost(json.loads(p.read_text()), prices or {})
         by_task.setdefault(info["task"], []).append((p.parent, info))
 
+    notes = [ln for ln in summary_lines if ln.startswith("Estimated API cost")]
     table = [ln for ln in summary_lines if ln.startswith("|")]
     rows = [[c.strip() for c in ln.strip("|").split("|")] for ln in table if not set(ln) <= set("|-")]
     html_table = "<div class=\"scroll\"><table>" + "".join(
@@ -137,6 +144,7 @@ def write_html(root: Path, exp: dict, summary_lines: list[str], embed: bool = Fa
 <p class="sub">{len(results)} graded runs · design diagrams show failed base pairs in red · structures are oxDNA mean structures</p>
 {'<p class="sub"><b>Warning:</b> some runs used the mock oxDNA runner; their simulation metrics are synthetic.</p>' if mock else ''}
 {html_table}
+{''.join(f'<p class="sub">{escape(n.replace("**", ""))}</p>' for n in notes)}
 {''.join(sections)}
 </main></body></html>
 """

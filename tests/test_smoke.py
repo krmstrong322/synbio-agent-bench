@@ -134,3 +134,15 @@ def test_unwrap_rejoins_strands_split_across_periodic_boundary(tmp_path):
     strand = np.array([1, 1, 1, 2, 2, 2])
     out = unwrap_strands(shifted, strand, box, np.array([[0, 5]]))
     assert np.allclose(out, pos)
+
+
+def test_cost_estimate_is_cache_aware():
+    from synbio_bench.cost import estimate_cost
+
+    usage = {"m": {"input_tokens": 1_000_000, "output_tokens": 100_000,
+                   "input_token_details": {"cache_read": 800_000, "ephemeral_5m_input_tokens": 100_000}}}
+    price = {"input": 1.0, "output": 5.0, "cache_read": 0.1, "cache_write_5m": 1.25}
+    c = estimate_cost(usage, price)
+    # 100k uncached * 1.0 + 800k * 0.1 + 100k * 1.25 + 100k out * 5.0 = 0.1 + 0.08 + 0.125 + 0.5
+    assert abs(c["total_usd"] - 0.805) < 1e-9
+    assert estimate_cost(usage, None) is None
