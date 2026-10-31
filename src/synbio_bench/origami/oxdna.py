@@ -117,7 +117,11 @@ def _common(cfg: OxDNAConfig, seed: int) -> dict[str, Any]:
 def build_inputs(cfg: OxDNAConfig, protocol: str, seed: int = 1) -> dict[str, dict[str, Any]]:
     p = cfg.protocols[protocol]
     gpu = cfg.backend.upper() == "CUDA"
-    md_backend = {"backend": "CUDA", "backend_precision": "mixed"} if gpu else {"backend": "CPU"}
+    # max_density_multiplier: large sheets compact or roll during long relaxations and overflow
+    # CUDA's auto-sized cells ("A cell contains more than _max_n_per_cell particles").
+    md_backend = (
+        {"backend": "CUDA", "backend_precision": "mixed", "max_density_multiplier": 10} if gpu else {"backend": "CPU"}
+    )
     mc_steps, relax_steps, prod_steps = int(p["mc_steps"]), int(p["relax_steps"]), int(p["prod_steps"])
     every = int(p["print_every"])
 
