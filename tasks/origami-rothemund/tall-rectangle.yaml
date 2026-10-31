@@ -1,0 +1,48 @@
+id: origami-rothemund/tall-rectangle
+title: Rothemund tall rectangle (32 helices x 224 bp)
+difficulty: 4
+family: literature
+reference: reference_designs/rothemund.py tallrect
+prompt: |
+  Design a flat, single-layer DNA origami shaped like a 76 nm x 83 nm rectangle. Fill the shape with parallel helices
+  (a raster), as in Rothemund's scaffolded origami.
+
+  This is a recreation of the Rothemund tall rectangle (32 helices x 224 bp) from Rothemund, Nature 2006: 32 parallel helices of ~224 bp each (about 76 nm x 83 nm), folded from nearly the whole M13mp18 genome.
+
+  Requirements:
+  - square lattice; all helices in a single row of the lattice (a flat sheet)
+  - a single scaffold strand that is a contiguous fragment of M13mp18, 6600-7249 nt long
+  - at least 95% of the scaffold base-paired to staples
+  - every staple 16-60 nt long
+  - neighbouring helices held together by staple crossovers along their whole length
+  - shape fidelity is scored as the intersection-over-union (IoU) between your design's footprint and the ideal
+    shape of the same area, at the best rotation and position. For the footprint each base pair is 0.34 nm long
+    along its helix and neighbouring helices are 2.6 nm apart. Aim for IoU >= 0.85. The relaxed oxDNA
+    structure is scored the same way, so the shape must also hold together physically.
+
+  Save your design under /designs/ and submit it with submit_design.
+spec:
+  grid: square
+  planar: true
+  num_helices: 32
+  helix_bp:
+  - 212
+  - 236
+  scaffold:
+    count: 1
+    source: m13
+    length:
+    - 6600
+    - 7249
+    min_paired_fraction: 0.95
+  staple_length:
+  - 16
+  - 60
+  shape:
+    type: rectangle
+    aspect: 0.9154
+    min_iou: 0.9
+weights:
+  spec: 0.3333333333333333
+  sim: 0.3333333333333333
+  shape: 0.3333333333333333

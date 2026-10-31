@@ -1,0 +1,43 @@
+id: origami-shapes/disk-7000
+title: Flat disk, ~7000-nt scaffold
+difficulty: 3
+family: shape-scaling
+params:
+  shape: disk
+  scaffold_nt: 7000
+prompt: |
+  Design a flat, single-layer DNA origami shaped like a disk (circle). Fill the shape with parallel helices
+  (a raster), as in Rothemund's scaffolded origami.
+
+  Requirements:
+  - square lattice; all helices in a single row of the lattice (a flat sheet)
+  - a single scaffold strand that is a contiguous fragment of M13mp18, 6790-7210 nt long
+  - at least 95% of the scaffold base-paired to staples
+  - every staple 16-60 nt long
+  - neighbouring helices held together by staple crossovers along their whole length
+  - shape fidelity is scored as the intersection-over-union (IoU) between your design's footprint and the ideal
+    shape of the same area, at the best rotation and position. For the footprint each base pair is 0.34 nm long
+    along its helix and neighbouring helices are 2.6 nm apart. Aim for IoU >= 0.85. The relaxed oxDNA
+    structure is scored the same way, so the shape must also hold together physically.
+
+  Save your design under /designs/ and submit it with submit_design.
+spec:
+  grid: square
+  planar: true
+  scaffold:
+    count: 1
+    source: m13
+    length:
+    - 6790
+    - 7210
+    min_paired_fraction: 0.95
+  staple_length:
+  - 16
+  - 60
+  shape:
+    type: disk
+    min_iou: 0.85
+weights:
+  spec: 0.3333333333333333
+  sim: 0.3333333333333333
+  shape: 0.3333333333333333

@@ -1,0 +1,24 @@
+id: origami/12hb-honeycomb
+title: Twelve-helix compact bundle, honeycomb lattice
+difficulty: 3
+prompt: |
+  Design a compact 12-helix bundle on the honeycomb lattice, about 84 bp (28 nm) long. Choose a compact
+  cross-section (for example two fused hexagonal rings) so that every helix has at least two lattice
+  neighbours within the bundle.
+
+  Requirements:
+  - honeycomb lattice; exactly 12 helices; every helix adjacent to at least 2 others in the bundle
+  - 78-90 base pairs on every helix
+  - a single scaffold strand that is a contiguous fragment of M13mp18, 940-1080 nt long
+  - at least 95% of the scaffold base-paired to staples
+  - every staple 18-60 nt long
+  - helices held together by staple crossovers between all adjacent pairs
+
+  Save your design under /designs/ and submit it with submit_design.
+spec:
+  grid: honeycomb
+  num_helices: 12
+  helix_bp: [78, 90]
+  min_neighbors_per_helix: 2
+  scaffold: {count: 1, source: m13, length: [940, 1080], min_paired_fraction: 0.95}
+  staple_length: [18, 60]

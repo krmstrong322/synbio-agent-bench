@@ -1,0 +1,14 @@
+name: origami-pilot
+tasks:
+  - origami/4hb-square
+models: [claude-haiku-5-5, deepseek-v4.1-flash]
+repeats: 1
+agent:
+  max_simulations: 4
+  recursion_limit: 400
+  wall_timeout_s: 3600
+  script_timeout_s: 180
+evaluation:
+  protocol: standard
+  seeds: [1]
+  weights: {spec: 0.5, sim: 0.5}

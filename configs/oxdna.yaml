@@ -1,0 +1,31 @@
+# How oxDNA is run. oxDNA has no native Windows build:
+#   mode: wsl   -> runs `executable` inside a WSL distro (see scripts/setup_oxdna_wsl.sh)
+#   mode: local -> runs `executable` directly (Linux/macOS, or a native build)
+#   mode: mock  -> fake stable trajectories, for testing the harness only (flagged in all results)
+# Env overrides: OXDNA_MODE, OXDNA_EXECUTABLE, OXDNA_BACKEND
+runner:
+  mode: wsl
+  executable: /usr/local/bin/oxDNA
+  wsl_distro: Ubuntu
+backend: CUDA            # CUDA (GPU) or CPU for MD stages; MC relaxation always uses CPU
+interaction_type: DNA2
+temperature: 25C
+salt_concentration: 1.0
+use_average_seq: true
+timeout_s: 7200
+protocols:
+  quick:     # used by the agent's simulate_design tool
+    mc_steps: 1000
+    relax_steps: 2.0e+5
+    prod_steps: 5.0e+5
+    print_every: 1.0e+4
+  shape:     # grader protocol for flat-shape tasks (configs/shapes.yaml): ~5x shorter than standard
+    mc_steps: 2000
+    relax_steps: 2.0e+5
+    prod_steps: 1.0e+6
+    print_every: 2.0e+4
+  standard:  # used by the grader on final submissions
+    mc_steps: 2000
+    relax_steps: 1.0e+6
+    prod_steps: 5.0e+6
+    print_every: 5.0e+4

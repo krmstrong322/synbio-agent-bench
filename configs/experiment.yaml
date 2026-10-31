@@ -1,0 +1,17 @@
+name: origami-v1
+tasks:                       # task ids under tasks/
+  - origami/4hb-square
+  - origami/rect-sheet-8x96
+  - origami/6hb-honeycomb
+  - origami/12hb-honeycomb
+models: [claude-opus-5-5, claude-sonnet-5-5, claude-haiku-5-5, gpt-5.5]   # ids from models.yaml
+repeats: 3                   # independent runs per (task, model)
+agent:
+  max_simulations: 4         # simulate_design calls per run
+  recursion_limit: 400       # LangGraph super-steps per run
+  wall_timeout_s: 3600       # stop the agent after this long (checked between steps)
+  script_timeout_s: 180
+evaluation:
+  protocol: standard
+  seeds: [1]
+  weights: {spec: 0.5, sim: 0.5}

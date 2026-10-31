@@ -1,0 +1,23 @@
+id: origami/4hb-square
+title: Four-helix bundle, square lattice
+difficulty: 1
+prompt: |
+  Design a four-helix bundle (4HB) DNA origami on the square lattice: four parallel helices arranged
+  as a 2x2 square in cross-section, each roughly 64 bp long (about 21 nm).
+
+  Requirements:
+  - square lattice; exactly 4 helices in a 2x2 arrangement (each helix touches 2 others)
+  - 60-72 base pairs on every helix
+  - a single scaffold strand that is a contiguous fragment of M13mp18, 240-290 nt long
+  - at least 95% of the scaffold base-paired to staples
+  - every staple 18-60 nt long
+  - all helices connected into one rigid body by staple crossovers
+
+  Save your design under /designs/ and submit it with submit_design.
+spec:
+  grid: square
+  num_helices: 4
+  helix_bp: [60, 72]
+  min_neighbors_per_helix: 2
+  scaffold: {count: 1, source: m13, length: [240, 290], min_paired_fraction: 0.95}
+  staple_length: [18, 60]

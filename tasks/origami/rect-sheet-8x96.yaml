@@ -1,0 +1,23 @@
+id: origami/rect-sheet-8x96
+title: Flat rectangular sheet, 8 helices x 96 bp
+difficulty: 2
+prompt: |
+  Design a flat, single-layer rectangular DNA origami sheet: 8 parallel helices side by side in one
+  plane, each about 96 bp long (roughly 32 nm x 20 nm).
+
+  Requirements:
+  - square lattice; exactly 8 helices, all in a single row of the lattice (a flat sheet)
+  - 90-100 base pairs on every helix
+  - a single scaffold strand that is a contiguous fragment of M13mp18, 720-800 nt long
+  - at least 95% of the scaffold base-paired to staples
+  - every staple 18-60 nt long
+  - neighbouring helices held together by staple crossovers along their whole length
+
+  Save your design under /designs/ and submit it with submit_design.
+spec:
+  grid: square
+  num_helices: 8
+  planar: true
+  helix_bp: [90, 100]
+  scaffold: {count: 1, source: m13, length: [720, 800], min_paired_fraction: 0.95}
+  staple_length: [18, 60]

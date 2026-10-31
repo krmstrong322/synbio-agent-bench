@@ -1,0 +1,28 @@
+# Models under test. `model` is any LangChain init_chat_model "provider:name" string.
+# Everything under `kwargs` is passed to init_chat_model; `api_key_env` names the env var holding the key
+# (useful for OpenAI-compatible endpoints such as OpenRouter or a local vLLM server).
+# `price_per_mtok` (USD per million tokens) is optional and only used for cost columns in reports.
+# Check model names against your providers' current model lists before running.
+models:
+  - id: claude-opus-5-5
+    model: anthropic:claude-opus-5-5
+    kwargs: {max_tokens: 16000}
+  - id: claude-sonnet-5-5
+    model: anthropic:claude-sonnet-5-5
+    kwargs: {max_tokens: 16000}
+  - id: claude-haiku-5-5
+    model: anthropic:claude-haiku-5-5
+    kwargs: {max_tokens: 16000}
+  - id: gpt-5.5
+    model: openai:gpt-5.5
+  - id: deepseek-v4.1-flash
+    model: openai:deepseek/deepseek-v4.1-flash-1017
+    kwargs: {base_url: "https://openrouter.ai/api/v1", api_key_env: OPENROUTER_API_KEY, use_responses_api: false, max_tokens: 64000}  # reasoning tokens count toward this
+  # - id: gemini
+  #   model: google_genai:<model-name>
+  # - id: openrouter-example
+  #   model: openai:<org/model-name>
+  #   kwargs: {base_url: "https://openrouter.ai/api/v1", api_key_env: OPENROUTER_API_KEY, use_responses_api: false}
+  # - id: local-vllm
+  #   model: openai:<served-model-name>
+  #   kwargs: {base_url: "http://localhost:8000/v1", api_key: "EMPTY", use_responses_api: false}
