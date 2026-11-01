@@ -33,9 +33,13 @@ rectangle (32 × 224 bp) at full M13 scale. The original cadnano files (`referen
 `SOURCES.md`) import into scadnano and serve as reference designs.
 
 Shape tasks add a **shape score**: the IoU between an outline and the ideal shape of the same area, at the
-best rotation and position (`src/synbio_bench/origami/shapes.py`). Two outlines are scored:
+best rotation and position (`src/synbio_bench/origami/shapes.py`). Three outlines are measured:
 - the design footprint (0.34 nm per bp × 2.6 nm per helix), which the agent sees during validation;
-- the relaxed oxDNA mean structure, projected onto its plane. This one goes into the grade.
+- **the unrolled sheet (graded)**: the relaxed oxDNA mean structure flattened along its own surface.
+  Helix-axis points are linked along each helix and across crossover-connected neighbours. Surface
+  distances on that network are laid out in 2D (classical MDS). Rolling, bending and twisting in solution
+  don't count, but tearing does: a split seam disconnects the network and loses area;
+- the projected outline plus flatness, which describe how the sheet sits in solution (reported, not graded).
 
 Wrong shapes score ~0.65–0.70, so treat IoU above ~0.9 as a good match. Shape tasks weight
 spec / base pairs formed / simulated shape equally.
@@ -153,10 +157,11 @@ The smoke tests need neither API keys nor oxDNA. They use a scripted model and t
   compare RMSD across models, not against zero.
 - The quick and standard protocols are short by origami standards. Before drawing conclusions, check that
   `sim_score` is stable across seeds on the reference design and a few submissions.
-- Flat sheets twist in solution. On the quick protocol, Rothemund's rectangle (10.67 bp/turn) twists ~57°
-  end to end and its simulated shape IoU is 0.88 (99.3% of base pairs formed). With one deletion per helix
-  every 48 bp (`rothemund.py rect-twistfix`) the twist drops to ~33° and the IoU rises to 0.90. The shape
-  score therefore rewards twist correction, and ~0.9 is about the best a flat full-size sheet reaches.
+- Flat sheets twist and roll up in solution. Rothemund's rectangle (10.67 bp/turn) twists ~57° end to end on
+  short runs and **rolls into a tube** on the standard protocol (5M steps), while staying >99% base-paired.
+  Its projected IoU falls from 0.88 to 0.54, which is why the graded score uses the unrolled sheet instead:
+  that stays at 0.95–0.96 on every protocol. Twist correction (`rothemund.py rect-twistfix`, one deletion per
+  helix every 48 bp) cuts the twist to ~33° and shows up in the projected IoU and flatness.
 - Grading cost: a full-M13 design (~14k nt) takes ~13 min on the quick protocol and ~95 min on the standard
   protocol on a GTX 1660. Small designs (<2k nt) take ~5 and ~35 min.
 - Adding a task family: add a `tasks/<family>/` spec, tools under `src/synbio_bench/<family>/`, and skills.

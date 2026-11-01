@@ -17,7 +17,7 @@ ROOT = Path(__file__).resolve().parents[2]
 
 COLUMNS = [
     "task", "model", "seed", "termination", "submitted", "valid", "overall", "spec_score", "sim_score",
-    "shape_score", "bp_fraction_mean", "rmsf_mean_nm", "rmsd_to_design_nm", "initial_stretched_bonds",
+    "shape_score", "shape_projected_iou", "flatness", "bp_fraction_mean", "rmsf_mean_nm", "rmsd_to_design_nm", "initial_stretched_bonds",
     "simulations_used", "n_model_calls", "input_tokens", "output_tokens", "cost_usd", "wall_time_s", "sim_runner",
 ]
 
@@ -41,6 +41,7 @@ def flatten(r: dict) -> dict:
         "task": r["task"], "model": r["model"], "seed": r.get("seed"), "termination": r.get("termination"),
         "submitted": g.get("submitted"), "valid": g.get("valid"), "overall": g.get("overall"),
         "spec_score": g.get("spec_score"), "sim_score": g.get("sim_score"), "shape_score": g.get("shape_score"),
+        "shape_projected_iou": g.get("shape_projected_iou"), "flatness": g.get("flatness"),
         "bp_fraction_mean": g.get("bp_fraction_mean"), "rmsf_mean_nm": g.get("rmsf_mean_nm"),
         "rmsd_to_design_nm": g.get("rmsd_to_design_nm"), "initial_stretched_bonds": g.get("initial_stretched_bonds"),
         "simulations_used": r.get("simulations_used"), "n_model_calls": r.get("n_model_calls"),

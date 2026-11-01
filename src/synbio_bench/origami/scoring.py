@@ -6,7 +6,9 @@ overall = 0                                                       if the design 
 valid      : loads, legal, has a scaffold, every base sequenced, no mismatched designed pairs
 spec_score : mean pass fraction over validation checks (lattice, helix count, lengths, coverage, ...)
 sim_score  : mean fraction of designed base pairs formed in the evaluation simulation(s)
-shape_score: (shape tasks) IoU of the simulated mean structure's outline with the target shape
+shape_score: (shape tasks) IoU of the simulated sheet, unrolled along its surface, with the target shape
+             (rolling/bending in solution doesn't count; tearing does). The projected outline and
+             flatness are reported separately.
 All raw metrics are kept so other weightings can be computed later.
 """
 
@@ -56,15 +58,18 @@ def evaluate_submission(
             sims.append(r)
             m = r.get("metrics", {}) if r.get("ok") else {}
             bp.append(m.get("bp_fraction_mean") or 0.0)
-            shape_iou.append((m.get("shape_fidelity") or {}).get("iou", 0.0))
+            shape_iou.append((m.get("shape_unrolled") or {}).get("iou", 0.0))
     sim_score = statistics.mean(bp) if bp else 0.0
     shape_score = statistics.mean(shape_iou) if shape_iou else 0.0
     overall = weights["spec"] * spec_score + weights["sim"] * sim_score
     if "shape" in spec:
         overall += weights.get("shape", 0.0) * shape_score
 
-    def mean_metric(key: str) -> float | None:
-        vals = [s["metrics"][key] for s in sims if s.get("ok") and s["metrics"].get(key) is not None]
+    def mean_metric(key: str, sub: str | None = None) -> float | None:
+        vals = [s["metrics"].get(key) for s in sims if s.get("ok")]
+        if sub:
+            vals = [v.get(sub) if isinstance(v, dict) else None for v in vals]
+        vals = [v for v in vals if v is not None]
         return round(statistics.mean(vals), 4) if vals else None
 
     return {
@@ -83,6 +88,8 @@ def evaluate_submission(
         "bp_fraction_mean": mean_metric("bp_fraction_mean"),
         "rmsf_mean_nm": mean_metric("rmsf_mean_nm"),
         "rmsd_to_design_nm": mean_metric("rmsd_mean_structure_to_design_nm"),
+        "shape_projected_iou": mean_metric("shape_fidelity", "iou"),
+        "flatness": mean_metric("shape_fidelity", "flatness"),
         "initial_stretched_bonds": sims[0]["initial_backbone"]["num_stretched_bonds"] if sims and "initial_backbone" in sims[0] else None,
         "sim_runner": oxdna.mode,
         "protocol": protocol,

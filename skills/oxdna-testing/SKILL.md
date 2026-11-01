@@ -31,10 +31,16 @@ The simulation budget per task is small, and each run takes minutes. Always clea
   deviation is normal because scadnano's starting geometry is idealized (helices 3 nm apart instead of ~2.5).
   Large values with low RMSF mean the structure is strained (twisted or bent).
 - `extents_nm` vs `design_extents_nm`: principal dimensions of the relaxed and ideal structures.
-- `shape_fidelity` (flat-shape tasks only): `iou` between the relaxed structure's outline, projected onto its
-  best-fit plane, and the target shape. `flatness` is thickness divided by width (≈0.05–0.15 for a flat sheet;
-  higher means the sheet curls or twists). A footprint IoU from validation that stays high while this IoU drops
-  means the shape deforms in simulation: look for missing crossovers or twist.
+- `shape_unrolled` (flat-shape tasks only, **this is the graded shape score**): the relaxed sheet is
+  flattened along its own surface and its outline compared with the target shape (`iou`). Bending,
+  twisting or rolling up in solution doesn't lower it, but tearing does: neighbouring helices pulling
+  apart, or a seam with too few crossovers splitting the sheet. `components` > 1 or `coverage` < 1 means part
+  of the sheet came loose. A high footprint IoU from validation with a low unrolled IoU means the sheet
+  distorts or splits in simulation. Look for missing crossovers between rows.
+- `shape_fidelity` (flat-shape tasks only, descriptive): the outline projected onto the best-fit plane, plus
+  `flatness` (thickness / width). Flat sheets twist and can roll up in solution, so a low value here with a
+  high `shape_unrolled` is normal. Twist correction (one deletion per helix every ~48 bp on a square
+  lattice) keeps sheets flatter.
 - `WARNING: mock oxDNA runner`: the numbers are synthetic and come from a harness test mode. Rely on
   validation, not these metrics.
 

@@ -1,4 +1,4 @@
-# Project status: where we left off (2026-10-31)
+# Project status (last updated 2026-11-01)
 
 A snapshot for picking the work back up. The README covers how the harness works; this file covers
 what has been run, what was found, and what is still open.
@@ -28,20 +28,23 @@ whole 16k output cap on reasoning and stopped. The cap is now 64k.
 
 **Calibration (`runs/_calibration/`), Rothemund rectangle, 13,824 nt:**
 
-| protocol | design | bp formed | shape IoU | flatness | time |
-|---|---|---|---|---|---|
-| quick | original | 0.993 | 0.88 | 0.29 | 13 min |
-| quick | twist-fixed | 0.993 | 0.90 | 0.19 | 12 min |
-| shape | original | 0.994 | 0.88 | 0.27 | 22 min |
-| shape | twist-fixed | 0.994 | 0.90 | 0.17 | 22 min |
-| standard | original | 0.996 | **0.54** | 0.23 | 87 min |
-| standard | twist-fixed | crashed (CUDA cell overflow); fixed since, not yet re-run | | | |
+| protocol | design | bp formed | **unrolled IoU (graded)** | projected IoU | flatness | time |
+|---|---|---|---|---|---|---|
+| quick | original | 0.993 | 0.95 | 0.88 | 0.29 | 13 min |
+| quick | twist-fixed | 0.993 | 0.95 | 0.90 | 0.19 | 12 min |
+| shape | original | 0.994 | 0.95 | 0.88 | 0.27 | 22 min |
+| shape | twist-fixed | 0.994 | 0.95 | 0.90 | 0.17 | 22 min |
+| standard | original | 0.996 | 0.96 | **0.54** | 0.23 | 87 min |
+| standard | twist-fixed | re-running with the crash fix (2026-11-01) | | | | |
+
+Wrong-shape control (the same rectangles scored against a triangle): unrolled IoU ≈ 0.68.
 
 **Key finding:** under the standard protocol (5M production steps) the flat rectangle **rolls up into a
 tube** (end view: a ~22 nm ring) while staying fully base-paired. The shorter protocols ended before this
-happened, so their shape scores are not converged; they capture an early state. Projected-outline IoU
-is therefore not a reliable flat-shape score in solution. See
-`runs/_calibration/protocols/rothemund_rect__standard/figures/structure_occupancy.png`.
+happened. Projected-outline IoU is therefore not a reliable flat-shape score in solution. **Resolved
+2026-11-01:** shapes are now graded on the *unrolled* sheet (see the README), which is 0.95–0.96 on every
+protocol, rolled or not. Projected IoU and flatness are still reported as in-solution descriptors. See
+`runs/_calibration/protocols/rothemund_rect__standard/figures/structure_occupancy.png` (fourth panel).
 
 Other calibration facts:
 - The relaxed helix spacing is 2.64 nm, which validates the 2.6 nm footprint convention.
@@ -49,34 +52,22 @@ Other calibration facts:
 - scadnano's cadnano import loses the square lattice's 10.67 bp/turn and the helix phase. The Rothemund
   reference sets them (10.67 bp/turn with roll 305°; twist-fixed: 10.5 bp/turn with roll 320°).
 
-## Uncommitted when saved → now committed
-
-- `oxdna.py`: `max_density_multiplier = 10` on CUDA, to fix the cell-overflow crash. **The test suite was
-  not re-run after this change**, so run `uv run pytest` first.
-
 ## Open decisions (in rough priority order)
 
-1. **How to score flat shapes, given that sheets roll up in solution.** Options:
-   - *Developed-surface IoU (recommended):* unroll the simulated sheet (geodesic distances along the
-     helix-axis graph, embedded in 2D by MDS) and compare that outline with the target. This is
-     invariant to rolling and bending. Keep projected IoU and flatness as separate "in-solution shape"
-     metrics.
-   - *Adsorption plane:* add an attractive plane (as on AFM mica) so sheets stay flat. This is closer to
-     experiment but adds physics assumptions; check that oxDNA's external forces support it.
-   - Keep the projected IoU but use a long protocol (expensive, and rolling dominates).
-2. **Shape-task grading protocol.** The shorter `shape` protocol was assumed to be converged; the standard
-   run showed it isn't. Revisit after deciding (1).
-3. **Re-run the twist-fixed standard comparison** with the crash fix (~95 min of GPU time):
-   `uv run python scripts/compare_protocols.py --task origami-rothemund/rectangle --design reference_designs/out/rothemund_rect_twistfix.sc --protocol standard`
-   (first rebuild the designs with `reference_designs/rothemund.py`, since `reference_designs/out/` is not in git).
-4. **Harness policy:** should a model that stops without submitting get one reminder? Should there be a
+Resolved: flat-shape scoring now uses the unrolled sheet. Because that score is the same on every
+protocol, the shorter `shape` grading protocol (~22 min per full-size design) is adequate. The standard
+protocol only adds in-solution behaviour (rolling).
+
+1. **Twist-fixed standard comparison**: re-running with the crash fix (results in
+   `runs/_calibration/protocols_rerun/`). It shows whether twist correction prevents rolling.
+2. **Harness policy:** should a model that stops without submitting get one reminder? Should there be a
    per-run token or cost cap? (DeepSeek used 5.1M tokens on one small task.)
-5. **Where to run long experiments:** a rented cloud GPU is recommended. To do: a bootstrap script for a
+3. **Where to run long experiments:** a rented cloud GPU is recommended. To do: a bootstrap script for a
    fresh Ubuntu GPU machine, `OXDNA_MODE=local`, resumable `compare_protocols.py`, and docs on copying
    `runs/` back.
-6. Reference designs for the 4HB, 8-helix sheet, 12HB and shape tasks (positive controls).
-7. Repeats: the pilot had n=1 per model. Use ≥3 repeats for real comparisons.
-8. Choose a licence before making the repo public. The Rothemund cadnano files are CC BY-SA via
+4. Reference designs for the 4HB, 8-helix sheet, 12HB and shape tasks (positive controls).
+5. Repeats: the pilot had n=1 per model. Use ≥3 repeats for real comparisons.
+6. Choose a licence before making the repo public. The Rothemund cadnano files are CC BY-SA via
    OpenWetware; see `reference_designs/cadnano/SOURCES.md`.
 
 ## Resuming

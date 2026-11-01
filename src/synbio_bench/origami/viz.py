@@ -5,8 +5,9 @@
   arrows. Red shading marks designed base pairs that failed to form in simulation.
 - structure_occupancy.png / structure_strands.png: the relaxed oxDNA mean
   structure from three orthogonal directions (its principal axes), coloured by
-  base-pair occupancy or by strand. For shape tasks the fitted target outline is
-  drawn on the top view.
+  base-pair occupancy or by strand. For shape tasks a fourth panel shows the sheet
+  unrolled along its surface (what the shape score grades), with the fitted target
+  outline; the top view shows the projected outline.
 
 Everything is rendered from local data; no browser or online viewer is involved.
 """
@@ -190,8 +191,15 @@ def render_structure_png(
     ext = np.ptp(proj, axis=0) + 4
     views = [("top", 0, 1, 2), ("side", 0, 2, 1), ("end", 1, 2, 0)]
     ratios = [ext[0], ext[0], max(ext[1], 0.35 * ext[0])]
-    height = float(np.clip(13 * max(ext[1], ext[2]) / sum(ratios) + 1.3, 2.8, 6.0))
-    fig, axes = plt.subplots(1, 3, figsize=(15, height), layout="constrained", gridspec_kw={"width_ratios": ratios})
+    unrolled = data["unrolled_xy"] if shape and "unrolled_xy" in data.files and len(data["unrolled_xy"]) else None
+    if unrolled is not None:
+        unrolled = shapes.project_to_plane(np.c_[unrolled, np.zeros(len(unrolled))])[:, :2]
+        ratios.append(np.ptp(unrolled[:, 0]) + 4)
+    height = float(np.clip(13 * max(ext[1], ext[2]) / sum(ratios[:3]) + 1.3, 2.8, 6.0))
+    fig, axes = plt.subplots(
+        1, len(ratios), figsize=(15 if unrolled is None else 19, height), layout="constrained",
+        gridspec_kw={"width_ratios": ratios},
+    )
     size = float(np.clip(25000 / n, 1.2, 8))
     sc_handle = None
     for ax, (name, a, b, depth) in zip(axes, views):
@@ -212,7 +220,17 @@ def render_structure_png(
         fit = shapes.best_iou(cells, shape)
         poly = np.array(fit["polygon"] + fit["polygon"][:1])
         axes[0].plot(poly[:, 0], poly[:, 1], "k--", lw=1.2)
-        axes[0].set_title(f"top view — target {shape['type']} (IoU {fit['iou']:.2f}, flatness {flatness:.2f})", fontsize=10)
+        axes[0].set_title(f"top view — projected IoU {fit['iou']:.2f}, flatness {flatness:.2f}", fontsize=10)
+    if unrolled is not None:
+        ufit = shapes.best_iou(shapes._dilated_cells(unrolled), shape)
+        upoly = np.array(ufit["polygon"] + ufit["polygon"][:1])
+        ax = axes[3]
+        ax.scatter(unrolled[:, 0], unrolled[:, 1], s=max(size, 2.0), c="#4e79a7", linewidths=0)
+        ax.plot(upoly[:, 0], upoly[:, 1], "k--", lw=1.2)
+        ax.set_aspect("equal")
+        ax.set_title(f"unrolled sheet — target {shape['type']} (graded IoU {ufit['iou']:.2f})", fontsize=10)
+        ax.tick_params(labelsize=8)
+        ax.set_xlabel("nm", fontsize=8)
     if cbar_label and sc_handle is not None:
         fig.colorbar(sc_handle, ax=axes, shrink=0.7, pad=0.01, label=cbar_label)
     if title:

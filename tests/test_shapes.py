@@ -82,3 +82,39 @@ def test_figures_render_for_a_mock_run(rothemund_rect, tmp_path):
     svg = (run / figs["design"]).read_text(encoding="utf-8")
     assert svg.startswith("<svg") and svg.count("<path") > 200
     assert (run / figs["structure_occupancy"]).stat().st_size > 10_000
+
+
+def _sheet_points(design_path, tmp_path):
+    """Exported (ideal, flat) nucleotide positions in nm, plus slots and backbone links."""
+    import json
+
+    from synbio_bench.origami import analysis
+    from synbio_bench.origami.oxdna import export_design
+
+    export_design(design_path, tmp_path / "ox")
+    _, body = analysis.read_conf(tmp_path / "ox" / "initial.dat")
+    _, n3 = analysis.read_topology(tmp_path / "ox" / "initial.top")
+    slots = json.loads((tmp_path / "ox" / "index_map.json").read_text())["slots"]
+    return shapes.project_to_plane(body[:, :3] * 0.8518), slots, n3
+
+
+def test_unrolled_score_ignores_rolling_but_catches_tearing(rothemund_rect, tmp_path):
+    shape = {"type": "rectangle", "aspect": 1.5692}
+    flat, slots, n3 = _sheet_points(rothemund_rect, tmp_path)
+    # roll the sheet into a tube: the across-helix direction wraps around a cylinder
+    width = np.ptp(flat[:, 1])
+    r = width / (2 * np.pi * 0.95)
+    theta = (flat[:, 1] - flat[:, 1].min()) / r
+    rolled = np.c_[flat[:, 0], r * np.sin(theta), r * (1 - np.cos(theta))]
+
+    flat_fit, _ = shapes.unrolled_shape_iou(flat, slots, n3, shape)
+    rolled_fit, _ = shapes.unrolled_shape_iou(rolled, slots, n3, shape)
+    assert abs(rolled_fit["iou"] - flat_fit["iou"]) < 0.03
+    assert shapes.simulated_shape_iou(rolled, shape)["iou"] < 0.7  # the projected outline is fooled
+
+    # tear the sheet: pull the upper half of the helices 20 nm away from the rest
+    helix = np.array([s[0] if s else -1 for s in slots])
+    torn = flat.copy()
+    torn[helix >= 12, 2] += 20
+    torn_fit, _ = shapes.unrolled_shape_iou(torn, slots, n3, shape)
+    assert torn_fit["components"] >= 2 and torn_fit["iou"] < flat_fit["iou"] - 0.2

@@ -5,11 +5,14 @@ Shapes are polygons with unit area. Fidelity is the intersection-over-union
 own area and placed at the best rotation, reflection and translation. So the
 score measures shape, not size; scaffold length and coverage pin the size down.
 
-Two masks are scored:
+Three masks are scored:
 - design footprint: every designed base pair drawn as a 0.34 nm x PITCH_NM cell
   in (offset, helix row) coordinates. Cheap and visible to the agent.
-- simulated outline: the relaxed oxDNA mean structure projected onto its best-
-  fit plane and dilated. Measures whether the shape survives the physics.
+- unrolled sheet (graded): the relaxed oxDNA mean structure flattened along its
+  own surface, so rolling or bending in solution doesn't count, but tearing or
+  splitting does.
+- projected outline: the mean structure projected onto its best-fit plane, with
+  flatness. Describes how the sheet sits in solution (sheets twist and can roll up).
 """
 
 from __future__ import annotations
@@ -196,11 +199,16 @@ def outline_cells(points_nm: np.ndarray) -> tuple[np.ndarray, float]:
     proj = project_to_plane(points_nm)
     xy, z = proj[:, :2], proj[:, 2]
     flatness = float((z.max() - z.min()) / max(np.ptp(xy[:, 0]), np.ptp(xy[:, 1]), 1e-9))
+    return _dilated_cells(xy), flatness
+
+
+def _dilated_cells(xy: np.ndarray) -> np.ndarray:
+    """Pixel centres within SIM_DILATION_NM of any 2D point."""
     pix = np.unique(np.round(xy / PX_NM).astype(int), axis=0)
     r = int(np.ceil(SIM_DILATION_NM / PX_NM))
     kernel = [(dx, dy) for dx in range(-r, r + 1) for dy in range(-r, r + 1) if dx * dx + dy * dy <= r * r]
     dil = np.unique(np.concatenate([pix + k for k in kernel]), axis=0)
-    return dil.astype(float) * PX_NM, flatness
+    return dil.astype(float) * PX_NM
 
 
 def design_shape_iou(design: sc.Design, shape: dict[str, Any]) -> dict[str, Any]:
@@ -218,3 +226,100 @@ def simulated_shape_iou(mean_structure_nm: np.ndarray, shape: dict[str, Any]) ->
     out.pop("polygon")
     out["flatness"] = round(flatness, 3)
     return out
+
+
+# ---------------------------------------------------------------------------
+# Unrolled (developed-surface) outline
+# ---------------------------------------------------------------------------
+
+UNROLL_STEP_BP = 4  # sample the helix axis every 4 bp (1.36 nm)
+UNROLL_MAX_GAP_NM = 5.0  # neighbouring-helix points further apart than this count as torn
+UNROLL_DIAGONAL_STEPS = 6  # diagonal links up to 6 samples (~8 nm) along the neighbouring helix
+
+
+def helix_axis_points(points_nm: np.ndarray, slots: list, step: int = UNROLL_STEP_BP) -> dict[tuple[int, int], np.ndarray]:
+    """Midpoints of designed base pairs every `step` offsets: {(helix, offset): xyz}."""
+    index = {(s[0], s[1], s[3]): k for k, s in enumerate(slots) if s and s[2] < 0}
+    return {
+        (h, off): (points_nm[k] + points_nm[index[(h, off, False)]]) / 2
+        for (h, off, fwd), k in index.items()
+        if fwd and off % step == 0 and (h, off, False) in index
+    }
+
+
+def crossover_helix_pairs(slots: list, n3: np.ndarray) -> set[tuple[int, int]]:
+    """Helix pairs joined by at least one crossover (a backbone bond between helices)."""
+    pairs = set()
+    for i, j in enumerate(n3):
+        if j >= 0 and slots[i] and slots[j] and slots[i][0] != slots[j][0]:
+            pairs.add(tuple(sorted((slots[i][0], slots[j][0]))))
+    return pairs
+
+
+def unroll_sheet(
+    axis: dict[tuple[int, int], np.ndarray], helix_pairs: set[tuple[int, int]], step: int = UNROLL_STEP_BP
+) -> dict[str, Any]:
+    """Flatten a (possibly rolled or bent) sheet into 2D, preserving distances along its surface.
+
+    Builds a graph over helix-axis points: edges along each helix and between
+    crossover-connected helices at the same offset (only where they are still
+    within UNROLL_MAX_GAP_NM, so a split seam stays split). Geodesic distances on
+    that graph are embedded in 2D by classical MDS. Neighbours come from the
+    design, not from proximity, so the two edges of a rolled-up tube are never joined.
+    """
+    from scipy.sparse import coo_matrix
+    from scipy.sparse.csgraph import connected_components, shortest_path
+
+    keys = sorted(axis)
+    idx = {k: i for i, k in enumerate(keys)}
+    pts = np.array([axis[k] for k in keys])
+    rows, cols = [], []
+    by_helix: dict[int, list[int]] = {}
+    for h, off in keys:
+        by_helix.setdefault(h, []).append(off)
+    for h, offs in by_helix.items():  # along each helix, bridging small gaps (e.g. deletions)
+        for a, b in zip(offs, offs[1:]):
+            if b - a <= 3 * step:
+                rows.append(idx[(h, a)])
+                cols.append(idx[(h, b)])
+    # Across neighbouring helices, straight and diagonal: with straight links only, path lengths
+    # are city-block distances and the unrolled sheet comes out inflated along its diagonals.
+    for h1, h2 in helix_pairs:
+        for off in by_helix.get(h1, []):
+            i = idx[(h1, off)]
+            for k in range(-UNROLL_DIAGONAL_STEPS, UNROLL_DIAGONAL_STEPS + 1):
+                j = idx.get((h2, off + k * step))
+                along = abs(k) * step * RISE_NM
+                if j is not None and np.linalg.norm(pts[i] - pts[j]) <= np.hypot(UNROLL_MAX_GAP_NM, 1.3 * along):
+                    rows.append(i)
+                    cols.append(j)
+    n = len(keys)
+    w = np.linalg.norm(pts[rows] - pts[cols], axis=1) + 1e-9
+    graph = coo_matrix((w, (rows, cols)), shape=(n, n)).tocsr()
+    n_comp, labels = connected_components(graph, directed=False)
+    main = np.flatnonzero(labels == np.bincount(labels).argmax())
+    d = shortest_path(graph[main][:, main], directed=False)
+    m = len(main)
+    j = np.eye(m) - 1.0 / m
+    b = -0.5 * j @ (d**2) @ j
+    vals, vecs = np.linalg.eigh(b)
+    top = np.argsort(vals)[::-1][:2]
+    xy = vecs[:, top] * np.sqrt(np.maximum(vals[top], 0))
+    return {"xy": xy, "keys": [keys[i] for i in main], "components": int(n_comp), "coverage": m / n}
+
+
+def unrolled_shape_iou(
+    points_nm: np.ndarray, slots: list, n3: np.ndarray, shape: dict[str, Any]
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """IoU of the unrolled sheet with the target. Returns (metrics, unroll data for figures).
+
+    Points cut off from the main sheet (a torn piece) are left out, so tearing lowers the IoU.
+    """
+    axis = helix_axis_points(points_nm, slots)
+    if len(axis) < 10:
+        return {"iou": 0.0, "error": "too few paired helix-axis points to unroll"}, {}
+    unrolled = unroll_sheet(axis, crossover_helix_pairs(slots, n3))
+    fit = best_iou(_dilated_cells(unrolled["xy"]), shape)
+    fit.pop("polygon")
+    fit.update(components=unrolled["components"], coverage=round(unrolled["coverage"], 4))
+    return fit, unrolled

@@ -197,7 +197,7 @@ def _low_occupancy_regions(pairs: list[tuple[int, int]], occ: np.ndarray, slots:
 def analyze_run(work: str | Path, shape: dict[str, Any] | None = None) -> dict[str, Any]:
     """Metrics for a finished production run; `shape` adds flat-shape fidelity of the mean structure."""
     work = Path(work)
-    strand, _ = read_topology(work / "initial.top")
+    strand, n3 = read_topology(work / "initial.top")
     n = len(strand)
     imap = json.loads((work / "index_map.json").read_text())
     pairs = [tuple(p) for p in imap["pairs"]]
@@ -259,9 +259,14 @@ def analyze_run(work: str | Path, shape: dict[str, Any] | None = None) -> dict[s
         if rows:
             metrics["final_potential_energy_per_nt"] = float(rows[-1][1])
 
+    unrolled_xy = np.zeros((0, 2))
     if shape:
-        from .shapes import simulated_shape_iou
+        from .shapes import simulated_shape_iou, unrolled_shape_iou
 
+        # graded: the sheet flattened along its own surface (rolling/bending don't count, tearing does)
+        metrics["shape_unrolled"], unrolled = unrolled_shape_iou(mean * OX_TO_NM, slots, n3, shape)
+        unrolled_xy = unrolled.get("xy", unrolled_xy)
+        # descriptive: how the sheet sits in solution
         metrics["shape_fidelity"] = simulated_shape_iou(mean * OX_TO_NM, shape)
 
     # per-nucleotide data for figures (see viz.py)
@@ -272,5 +277,6 @@ def analyze_run(work: str | Path, shape: dict[str, Any] | None = None) -> dict[s
         pairs=np.array(pairs, dtype=int).reshape(-1, 2),
         pair_occupancy=occ,
         strand=strand,
+        unrolled_xy=unrolled_xy,
     )
     return metrics
