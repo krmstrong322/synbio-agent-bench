@@ -35,14 +35,15 @@ whole 16k output cap on reasoning and stopped. The cap is now 64k.
 | shape | original | 0.994 | 0.95 | 0.88 | 0.27 | 22 min |
 | shape | twist-fixed | 0.994 | 0.95 | 0.90 | 0.17 | 22 min |
 | standard | original | 0.996 | 0.96 | **0.54** | 0.23 | 87 min |
-| standard | twist-fixed | re-running with the crash fix (2026-11-01) | | | | |
+| standard | twist-fixed | 0.996 | 0.96 | 0.61 | 0.27 | 85 min |
 
 Wrong-shape control (the same rectangles scored against a triangle): unrolled IoU ≈ 0.68.
 
 **Key finding:** under the standard protocol (5M production steps) the flat rectangle **rolls up into a
 tube** (end view: a ~22 nm ring) while staying fully base-paired. The shorter protocols ended before this
-happened. Projected-outline IoU is therefore not a reliable flat-shape score in solution. **Resolved
-2026-11-01:** shapes are now graded on the *unrolled* sheet (see the README), which is 0.95–0.96 on every
+happened. Twist correction does **not** prevent this: the twist-fixed rectangle also curls into an open
+U (projected IoU 0.61 vs 0.54), so the curvature is not explained by global twist alone.
+Projected-outline IoU is therefore not a reliable flat-shape score in solution. **Resolved 2026-11-01:** shapes are now graded on the *unrolled* sheet (see the README), which is 0.95–0.96 on every
 protocol, rolled or not. Projected IoU and flatness are still reported as in-solution descriptors. See
 `runs/_calibration/protocols/rothemund_rect__standard/figures/structure_occupancy.png` (fourth panel).
 
@@ -56,18 +57,17 @@ Other calibration facts:
 
 Resolved: flat-shape scoring now uses the unrolled sheet. Because that score is the same on every
 protocol, the shorter `shape` grading protocol (~22 min per full-size design) is adequate. The standard
-protocol only adds in-solution behaviour (rolling).
+protocol only adds in-solution behaviour (rolling). The CUDA crash fix (`max_density_multiplier: 10`)
+is confirmed on the 13,824-nt twist-fixed run.
 
-1. **Twist-fixed standard comparison**: re-running with the crash fix (results in
-   `runs/_calibration/protocols_rerun/`). It shows whether twist correction prevents rolling.
-2. **Harness policy:** should a model that stops without submitting get one reminder? Should there be a
+1. **Harness policy:** should a model that stops without submitting get one reminder? Should there be a
    per-run token or cost cap? (DeepSeek used 5.1M tokens on one small task.)
-3. **Where to run long experiments:** a rented cloud GPU is recommended. To do: a bootstrap script for a
+2. **Where to run long experiments:** a rented cloud GPU is recommended. To do: a bootstrap script for a
    fresh Ubuntu GPU machine, `OXDNA_MODE=local`, resumable `compare_protocols.py`, and docs on copying
    `runs/` back.
-4. Reference designs for the 4HB, 8-helix sheet, 12HB and shape tasks (positive controls).
-5. Repeats: the pilot had n=1 per model. Use ≥3 repeats for real comparisons.
-6. Choose a licence before making the repo public. The Rothemund cadnano files are CC BY-SA via
+3. Reference designs for the 4HB, 8-helix sheet, 12HB and shape tasks (positive controls).
+4. Repeats: the pilot had n=1 per model. Use ≥3 repeats for real comparisons.
+5. Choose a licence before making the repo public. The Rothemund cadnano files are CC BY-SA via
    OpenWetware; see `reference_designs/cadnano/SOURCES.md`.
 
 ## Resuming
