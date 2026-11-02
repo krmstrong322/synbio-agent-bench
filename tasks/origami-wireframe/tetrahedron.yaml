@@ -1,0 +1,30 @@
+id: origami-wireframe/tetrahedron
+title: Wireframe tetrahedron with two-helix edges
+difficulty: 4
+reference: reference_designs/wireframe_tetrahedron.py
+prompt: |
+  Design a wireframe DNA origami tetrahedron: a hollow, regular tetrahedron whose six edges are each a bundle of
+  two parallel helices (a double-crossover, "DX", edge), joined at its four vertices. The edges should be about
+  84 bp (about 29 nm) of duplex each, and the tetrahedron about 35 nm along each edge from vertex to vertex.
+
+  Requirements:
+  - exactly 12 helices: two per edge, the pair side by side and joined by staple crossovers along the edge
+  - 80-88 base pairs on every helix
+  - each edge's two helices form one helix group; groups are positioned and rotated (yaw, pitch, roll) so the
+    six edges lie along the edges of a regular tetrahedron
+  - every vertex joins its three edges with the scaffold or staples
+  - a single scaffold strand that is a contiguous fragment of M13mp18, 1000-1100 nt long
+  - at least 95% of the scaffold base-paired to staples
+  - every staple 18-60 nt long
+
+  Shape: the design's nucleotides must trace a regular tetrahedron with 35 nm edges. Precisely, after the best
+  rigid fit, at least 90% of the nucleotides must lie within 3.5 nm of a tetrahedron edge, and nearly every point
+  along the middle of each edge (more than 6 nm from its vertices) must have a nucleotide within 3.5 nm.
+
+  Save your design under /designs/ and submit it with submit_design.
+spec:
+  num_helices: 12
+  helix_bp: [80, 88]
+  scaffold: {count: 1, source: m13, length: [1000, 1100], min_paired_fraction: 0.95}
+  staple_length: [18, 60]
+  wireframe: {type: tetrahedron, edge_nm: 35.0, tube_nm: 3.5, min_f1: 0.9}

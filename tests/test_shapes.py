@@ -11,7 +11,8 @@ import pytest
 import yaml
 
 from synbio_bench.origami import shapes
-from synbio_bench.origami.design import load_design, validate_design
+from origami_agent.design import load_design
+from synbio_bench.origami.spec import validate_design
 from synbio_bench.origami.oxdna import OxDNAConfig, simulate
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -118,3 +119,46 @@ def test_unrolled_score_ignores_rolling_but_catches_tearing(rothemund_rect, tmp_
     torn[helix >= 12, 2] += 20
     torn_fit, _ = shapes.unrolled_shape_iou(torn, slots, n3, shape)
     assert torn_fit["components"] >= 2 and torn_fit["iou"] < flat_fit["iou"] - 0.2
+
+
+@pytest.fixture(scope="module")
+def sharp_triangle(tmp_path_factory) -> Path:
+    out = tmp_path_factory.mktemp("ref") / "tri.sc"
+    subprocess.run([sys.executable, "sharp_triangle.py", str(out)], cwd=ROOT / "reference_designs", check=True)
+    return out
+
+
+def test_sharp_triangle_reference_meets_its_task(sharp_triangle):
+    """Three trapezoids in rotated helix groups count as one flat sheet, and the open centre is filled."""
+    spec = yaml.safe_load((ROOT / "tasks/origami-shapes/triangle-4000.yaml").read_text(encoding="utf-8"))["spec"]
+    d = load_design(sharp_triangle)
+    assert len({h.group for h in d.helices.values()}) == 3 and shapes.planar_sheet(d)
+    r = validate_design(sharp_triangle, spec)
+    assert r["ok"], r["errors"]
+    assert r["checks"]["shape_footprint"] > 0.95
+
+
+def test_tilted_helix_group_is_not_planar(sharp_triangle):
+    d = load_design(sharp_triangle)
+    d.groups["B"].yaw = 30  # rotate one trapezoid out of the sheet's plane
+    assert not shapes.planar_sheet(d)
+    assert shapes.footprint_cells(d) is None
+
+
+def test_fill_holes_closes_an_annulus():
+    g = np.stack(np.meshgrid(np.arange(-20, 20) + 0.5, np.arange(-20, 20) + 0.5), -1).reshape(-1, 2)
+    r = np.linalg.norm(g, axis=1)
+    ring = g[(r < 18) & (r > 9)]
+    assert len(shapes.fill_holes(ring)) == np.count_nonzero(r < 18)
+
+
+def test_unrolled_hollow_triangle_matches_its_flat_outline(sharp_triangle, tmp_path):
+    """Seams are stitched through bridging loops and designed contacts; the hole doesn't distort the layout."""
+    shape = {"type": "triangle"}
+    flat, slots, n3 = _sheet_points(sharp_triangle, tmp_path)
+    loops = [link for link in shapes.crossover_links(slots, n3) if link[2] > 0]
+    assert len(loops) >= 10  # bridging staples and scaffold jumps cross the seams through unpaired loops
+    fit, _ = shapes.unrolled_shape_iou(flat, slots, n3, shape, flat)
+    axis = shapes.helix_axis_points(flat, slots)
+    exact = shapes.best_iou(shapes._dilated_cells(np.array(list(axis.values()))[:, :2]), shape)["iou"]
+    assert fit["components"] == 1 and abs(fit["iou"] - exact) < 0.02

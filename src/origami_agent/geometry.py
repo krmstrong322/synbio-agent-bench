@@ -1,9 +1,9 @@
 """Geometric crossover finder.
 
 Builds a probe design with the same helices (grid, positions, rolls, geometry)
-fully double-stranded, exports it through scadnano's oxDNA converter, and
-measures the distance between the backbone sites of antiparallel strands on
-neighbouring helices at each offset. Good crossover offsets are where those
+fully double-stranded, takes its 3D coordinates from scadnano's oxDNA-format
+writer (nothing is simulated), and measures the distance between the backbone
+sites of antiparallel strands on neighbouring helices at each offset. Good crossover offsets are where those
 distances are smallest, so this works for any lattice or helix roll.
 """
 
@@ -15,8 +15,9 @@ from typing import Any
 import numpy as np
 import scadnano as sc
 
-from .analysis import OX_TO_NM
 from .design import _grid_neighbors, nucleotide_map
+
+OX_TO_NM = 0.8518  # one oxDNA length unit in nm
 
 # oxDNA2 backbone site offset along a1 (base direction) and a2 = a3 x a1, in oxDNA units.
 _BACK_A1, _BACK_A2 = -0.34, 0.3408

@@ -7,9 +7,11 @@ tasks:                       # task ids under tasks/
 models: [claude-opus-5-5, claude-sonnet-5-5, claude-haiku-5-5, gpt-5.5]   # ids from models.yaml
 repeats: 3                   # independent runs per (task, model)
 agent:
-  max_simulations: 4         # simulate_design calls per run
-  recursion_limit: 400       # LangGraph super-steps per run
+  max_model_calls: 120       # the step budget: model calls per run (the pilot's 400 super-steps were ~130 calls)
   wall_timeout_s: 3600       # stop the agent after this long (checked between steps)
+  cost_cap_usd: 5.0          # safety net only; should never bind in normal use
+  last_chance_calls: 10      # after the budget ends without a submission: calls to find, validate and submit
+  recursion_limit: 1000      # LangGraph super-steps; a backstop behind max_model_calls
   script_timeout_s: 180
 evaluation:
   protocol: standard

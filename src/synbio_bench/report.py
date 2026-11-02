@@ -16,9 +16,9 @@ from .cost import estimate_cost
 ROOT = Path(__file__).resolve().parents[2]
 
 COLUMNS = [
-    "task", "model", "seed", "termination", "submitted", "valid", "overall", "spec_score", "sim_score",
+    "task", "model", "seed", "termination", "last_chance", "submitted_in_budget", "submitted", "valid", "overall", "spec_score", "sim_score",
     "shape_score", "shape_projected_iou", "flatness", "bp_fraction_mean", "rmsf_mean_nm", "rmsd_to_design_nm", "initial_stretched_bonds",
-    "simulations_used", "n_model_calls", "input_tokens", "output_tokens", "cost_usd", "wall_time_s", "sim_runner",
+    "n_model_calls", "input_tokens", "output_tokens", "cost_usd", "wall_time_s", "sim_runner",
 ]
 
 
@@ -37,14 +37,16 @@ def load_prices(models_path: str | Path) -> dict[str, dict]:
 def flatten(r: dict) -> dict:
     g = r.get("grade", {})
     t = r.get("tokens", {})
+    last = r.get("last_chance")
     return {
         "task": r["task"], "model": r["model"], "seed": r.get("seed"), "termination": r.get("termination"),
+        "last_chance": last is not None, "submitted_in_budget": bool(g.get("submitted")) and last is None,
         "submitted": g.get("submitted"), "valid": g.get("valid"), "overall": g.get("overall"),
         "spec_score": g.get("spec_score"), "sim_score": g.get("sim_score"), "shape_score": g.get("shape_score"),
         "shape_projected_iou": g.get("shape_projected_iou"), "flatness": g.get("flatness"),
         "bp_fraction_mean": g.get("bp_fraction_mean"), "rmsf_mean_nm": g.get("rmsf_mean_nm"),
         "rmsd_to_design_nm": g.get("rmsd_to_design_nm"), "initial_stretched_bonds": g.get("initial_stretched_bonds"),
-        "simulations_used": r.get("simulations_used"), "n_model_calls": r.get("n_model_calls"),
+        "n_model_calls": r.get("n_model_calls"),
         "input_tokens": t.get("input_tokens"), "output_tokens": t.get("output_tokens"),
         "cost_usd": r.get("cost_usd"), "wall_time_s": r.get("wall_time_s"), "sim_runner": g.get("sim_runner"),
     }
@@ -91,12 +93,14 @@ def cmd_report(args: argparse.Namespace) -> None:
         groups[(r["task"], r["model"])].append(r)
     lines = [
         f"# {exp['name']}: results", "",
-        "| task | model | n | ended | valid | overall | spec | bp formed | shape IoU | RMSF nm | tokens in/out (k) | cost $ | time min |",
-        "|---|---|---|---|---|---|---|---|---|---|---|---|---|",
+        "| task | model | n | ended | submitted in budget / at last chance | valid | overall | spec | bp formed | shape IoU | RMSF nm | tokens in/out (k) | cost $ | time min |",
+        "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|",
     ]
     for (task, model), rs in sorted(groups.items()):
         lines.append(
-            f"| {task} | {model} | {len(rs)} | {_ended(rs)} | {sum(bool(r['valid']) for r in rs)}/{len(rs)} "
+            f"| {task} | {model} | {len(rs)} | {_ended(rs)} "
+            f"| {sum(r['submitted_in_budget'] for r in rs)} / {sum(r['last_chance'] and bool(r['submitted']) for r in rs)} "
+            f"| {sum(bool(r['valid']) for r in rs)}/{len(rs)} "
             f"| {_ms([r['overall'] for r in rs])} | {_ms([r['spec_score'] for r in rs])} "
             f"| {_ms([r['bp_fraction_mean'] for r in rs])} | {_ms([r['shape_score'] for r in rs])} "
             f"| {_ms([r['rmsf_mean_nm'] for r in rs])} "

@@ -1,0 +1,96 @@
+"""Budget notices and the last chance, driven through the real deep agent with a scripted fake model."""
+
+from typing import Any
+
+from langchain_core.language_models.fake_chat_models import GenericFakeChatModel
+from langchain_core.messages import AIMessage, ToolMessage
+
+from origami_agent.agent import build_agent
+from origami_agent.tools import Workspace
+from synbio_bench.budget import LAST_CHANCE_TOOLS, Budget, BudgetMiddleware
+from synbio_bench.origami.harness import SYSTEM_PROMPT, Submission, make_submit_tool
+from synbio_bench.runner import drive_agent
+
+
+class ScriptedModel(GenericFakeChatModel):
+    """Replies from a fixed script and records which tools it was offered on each call."""
+
+    offered: list[list[str]] = []
+
+    def bind_tools(self, tools: Any, **kwargs: Any):
+        self.offered.append(sorted(t["name"] if isinstance(t, dict) else t.name for t in tools))
+        return self
+
+
+def _call(name: str, i: int, **args: Any) -> AIMessage:
+    return AIMessage(content="", tool_calls=[{"name": name, "args": args, "id": f"call_{i}"}])
+
+
+def _run(tmp_path, script: list[AIMessage], max_calls: int):
+    ws = Workspace(root=tmp_path / "workspace")
+    (ws.root / "designs").mkdir(parents=True)
+    (ws.root / "designs" / "v1.sc").write_text("{}")
+    model = ScriptedModel(messages=iter(script), offered=[])
+    sub = Submission(spec={})
+    budget = Budget(max_model_calls=max_calls, wall_timeout_s=3600, submitted_fn=lambda: sub.record is not None)
+    agent = build_agent(
+        model, ws, extra_tools=[make_submit_tool(ws, sub)], system_prompt=SYSTEM_PROMPT,
+        middleware=[BudgetMiddleware(budget)],
+    )
+    messages, ended = drive_agent(agent, "design something", budget, {"last_chance_calls": 3})
+    return sub, model, budget, messages, ended
+
+
+def test_step_limit_then_last_chance_submission(tmp_path):
+    script = [_call("ls", i, path="/") for i in range(4)]
+    script += [_call("submit_design", 9, design_path="/designs/v1.sc", rationale="best so far"), AIMessage("done")]
+    sub, model, budget, messages, ended = _run(tmp_path, script, max_calls=4)
+
+    assert ended["termination"] == "step_limit"
+    assert ended["last_chance"] == {"termination": "completed", "submitted": True}
+    assert sub.record is not None
+    assert budget.model_calls == 6
+    # full toolset during the run, only the last-chance tools afterwards
+    assert "write_file" in model.offered[0] and "run_python" in model.offered[0]
+    assert set(model.offered[-1]) == set(LAST_CHANCE_TOOLS)
+    # notices rode along on tool results; the 4th call used the whole budget and ended the run
+    notes = [m.content for m in messages if isinstance(m, ToolMessage) and "[harness] Budget" in str(m.content)]
+    assert [n.split("[harness] Budget ")[1].split("%")[0] for n in notes] == ["50", "75", "100"]
+    assert "No design has been submitted yet." in notes[0]
+
+
+def test_stopping_without_submitting_gets_one_reminder(tmp_path):
+    script = [AIMessage("I think I am done."), AIMessage("Still not submitting.")]
+    _, _, budget, _, ended = _run(tmp_path, script, max_calls=50)
+    assert ended["termination"] == "completed"
+    assert ended["last_chance"] == {"termination": "completed", "submitted": False}
+    assert budget.model_calls == 2  # one reminder, not a loop
+
+
+def test_cut_off_reply_is_dropped_and_the_run_carries_on(tmp_path):
+    cut = AIMessage("Planning at great length", response_metadata={"stop_reason": "max_tokens"})
+    script = [cut, _call("submit_design", 1, design_path="designs/v1.sc", rationale="r"), AIMessage("done")]
+    sub, _, budget, messages, ended = _run(tmp_path, script, max_calls=50)
+    assert ended == {"termination": "completed", "cut_off_replies": 1}
+    assert sub.record is not None and budget.model_calls == 3
+    assert not any(m.content == "Planning at great length" for m in messages)
+    assert any("[harness] Your last reply hit the output token limit" in str(m.content) for m in messages)
+
+
+def test_submitted_runs_get_no_last_chance(tmp_path):
+    rationale = "raster H0 → H28, 29 rows × ~138 bp"  # non-cp1252 text must not break submission on Windows
+    script = [_call("submit_design", 1, design_path="designs/v1.sc", rationale=rationale), AIMessage("done")]
+    _, _, budget, _, ended = _run(tmp_path, script, max_calls=50)
+    assert ended == {"termination": "completed"}
+    assert budget.model_calls == 2
+
+
+def test_cost_cap_counts_towards_budget():
+    cost = {"usd": 0.0}
+    b = Budget(max_model_calls=100, wall_timeout_s=3600, cost_cap_usd=2.0, cost_fn=lambda: cost["usd"])
+    assert b.exceeded() is None and b.notice() is None
+    cost["usd"] = 1.6
+    assert b.notice().startswith("[harness] Budget 80% used") and "$1.60 of the $2.00 cost cap" in b.notices[-1]
+    assert b.notice() is None  # each threshold is announced once
+    cost["usd"] = 2.0
+    assert b.exceeded() == "cost_cap"

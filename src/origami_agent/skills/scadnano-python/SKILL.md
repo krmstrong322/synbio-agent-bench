@@ -62,6 +62,72 @@ An `IllegalDesignError` from a crossover or nick call usually means no domain wi
 that offset on one of the helices, or (for half crossovers) the strands don't end there. Check directions: scaffold and staple run opposite ways on each helix,
 and neighbouring helices' scaffolds run opposite ways.
 
+### Helix groups (domains whose helices point in different directions)
+
+A flat sheet can be built from several domains, each a `HelixGroup` with its own lattice, position and
+orientation. Helices run along +z; on the square grid, `grid_position=(0, j)` puts row j at y = j × spacing.
+`pitch` (degrees) rotates a group within that y–z plane: pitch 120 turns the helix direction from +z to
+(y = 0.866, z = −0.5). Keep x = 0 and yaw/roll at 0 so every group stays in the same plane.
+
+```python
+geom = sc.Geometry(bases_per_turn=10.67, rise_per_base_pair=0.34, helix_radius=1.0, inter_helix_gap=0.6)  # 2.6 nm apart
+groups = {
+    "A": sc.HelixGroup(grid=sc.square, pitch=0,   position=sc.Position3D(x=0, y=1.3,  z=0.0),  geometry=geom),
+    "B": sc.HelixGroup(grid=sc.square, pitch=120, position=sc.Position3D(x=0, y=-0.65, z=94.9), geometry=geom),
+}
+helices = [sc.Helix(grid_position=(0, j), group=g, max_offset=300) for g in groups for j in range(7)]
+design = sc.Design(helices=helices, groups=groups, strands=[])   # helix indices follow the list order
+```
+
+A group's `position` is where its offset 0 on row 0 sits, in nm. Strands may run through several groups.
+Build a strand from explicit domains, where consecutive domains on different helices form a crossover:
+
+```python
+design.add_strand(sc.Strand(domains=[
+    sc.Domain(helix=6, forward=True, start=100, end=290),
+    sc.Loopout(length=3),                                  # unpaired bases bridging a gap between domains
+    sc.Domain(helix=7, forward=True, start=12, end=280),
+], is_scaffold=True))
+```
+
+`find_crossover_offsets` compares the same offset on two helices, so use it between rows of one group. Where
+two groups meet, join row ends directly. A `Loopout` in a staple gets `?` bases from `assign_m13_to_scaffold`;
+set them to T afterwards: `s.set_dna_sequence(s.dna_sequence.replace("?", "T"))`.
+
+### Orienting a group in 3D (yaw, pitch, roll)
+
+For 3D shapes (wireframe edges, bundles at angles) give each group `yaw`, `pitch` and `roll` in degrees.
+scadnano applies yaw, then pitch, then roll, and the helices end up running along
+
+    forward = (cos(pitch)·sin(yaw), sin(pitch), cos(pitch)·cos(yaw))
+
+with roll turning the grid rows about that direction. To place a group from the directions you want:
+
+```python
+import math
+import numpy as np
+
+def group_angles(forward, side):
+    """(yaw, pitch, roll) in degrees: helices run along unit vector `forward`; grid row 1 sits on the `side`
+    of row 0 (a unit vector perpendicular to forward)."""
+    f, s = np.asarray(forward, float), np.asarray(side, float)
+    yaw, pitch = math.atan2(f[0], f[2]), math.asin(max(-1.0, min(1.0, f[1])))
+    x0 = np.array([math.cos(yaw), 0.0, -math.sin(yaw)])
+    y0 = np.array([-math.sin(pitch) * math.sin(yaw), math.cos(pitch), -math.sin(pitch) * math.cos(yaw)])
+    roll = math.atan2(-s.dot(x0), s.dot(y0))
+    return tuple(math.degrees(a) for a in (yaw, pitch, roll))
+
+yaw, pitch, roll = group_angles(forward=t, side=side)
+group = sc.HelixGroup(grid=sc.square, position=sc.Position3D(*p0), yaw=yaw, pitch=pitch, roll=roll,
+                      geometry=sc.Geometry(bases_per_turn=10.5, rise_per_base_pair=0.34,
+                                           helix_radius=1.0, inter_helix_gap=0.6))
+```
+
+With that group, the axis of row j at offset o is at `p0 + j*2.6*side + o*0.34*forward` (nm). Print these
+points for every helix end and check that ends meant to meet are 1–4 nm apart and that no two groups' helices
+come closer than ~2.5 nm. Strands may jump between groups anywhere: consecutive domains on different helices
+make the jump, and a `Loopout` between them adds unpaired bases to bridge the gap.
+
 ### Sequences
 
 ```python

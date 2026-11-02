@@ -25,9 +25,11 @@ tasks:
 models: [claude-haiku-5-5, deepseek-v4.1-flash]
 repeats: 1
 agent:
-  max_simulations: 4
-  recursion_limit: 400
+  max_model_calls: 120
   wall_timeout_s: 5400       # large shapes need longer scripts and slower simulations
+  cost_cap_usd: 15.0         # safety net only; full-size designs mean long scripts and outputs
+  last_chance_calls: 10
+  recursion_limit: 1000
   script_timeout_s: 300
 evaluation:
   protocol: shape            # ~20 min per full-M13 design on a GTX 1660 (standard: ~95 min)

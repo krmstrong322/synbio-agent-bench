@@ -6,19 +6,28 @@ params:
   shape: triangle
   scaffold_nt: 4000
 prompt: |
-  Design a flat, single-layer DNA origami shaped like an equilateral triangle. Fill the shape with parallel helices
-  (a raster), as in Rothemund's scaffolded origami.
+  Design a flat, single-layer DNA origami shaped like an equilateral triangle, built like Rothemund's scaffolded origami from
+  parallel helices joined by periodic crossovers. The sheet can be one raster of parallel helices, or several
+  domains whose helices run in different directions within the sheet (one scadnano helix group per domain),
+  joined by the scaffold and by bridging staples where they meet.
 
   Requirements:
-  - square lattice; all helices in a single row of the lattice (a flat sheet)
+  - square lattice; a single flat layer: every helix lies in one plane (one lattice row per helix group, and
+    groups rotated only within the plane of the sheet)
   - a single scaffold strand that is a contiguous fragment of M13mp18, 3880-4120 nt long
   - at least 95% of the scaffold base-paired to staples
   - every staple 16-60 nt long
-  - neighbouring helices held together by staple crossovers along their whole length
+  - neighbouring helices held together by staple crossovers along their whole length, and domains that meet
+    at a seam joined across it
   - shape fidelity is scored as the intersection-over-union (IoU) between your design's footprint and the ideal
     shape of the same area, at the best rotation and position. For the footprint each base pair is 0.34 nm long
-    along its helix and neighbouring helices are 2.6 nm apart. Aim for IoU >= 0.85. The relaxed oxDNA
-    structure is scored the same way, so the shape must also hold together physically.
+    along its helix and neighbouring helices are 2.6 nm apart; a design with several helix groups is drawn from
+    the groups' actual positions and orientations. Holes enclosed by the sheet count as filled, so the outline
+    is what is judged. Aim for IoU >= 0.85. The simulated oxDNA structure is also scored for shape: the
+    sheet is unrolled along its own surface (following the helices, their crossovers and the seams between
+    domains) and its outline compared with the target the same way. Bending or rolling up in solution does not
+    lower this score, but helices or domains that pull apart or tear away from their neighbours do, so the
+    crossovers and seams must hold the whole shape together.
 
   Save your design under /designs/ and submit it with submit_design.
 spec:
@@ -41,3 +50,4 @@ weights:
   spec: 0.3333333333333333
   sim: 0.3333333333333333
   shape: 0.3333333333333333
+reference: reference_designs/sharp_triangle.py

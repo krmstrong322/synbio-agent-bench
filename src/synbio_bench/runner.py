@@ -18,25 +18,29 @@ import time
 import traceback
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 import yaml
 from dotenv import load_dotenv
 from langchain_core.callbacks import get_usage_metadata_callback
-from langchain_core.messages import AIMessage, messages_to_dict
+from langchain_core.messages import AIMessage, HumanMessage, messages_to_dict
 from langgraph.errors import GraphRecursionError
 
+from .budget import CUT_OFF_MESSAGE, LAST_CHANCE_MESSAGE, Budget, BudgetMiddleware
 from .cost import estimate_cost
-from .origami.agent import build_agent, make_model
+from origami_agent.agent import build_agent, make_model
+from origami_agent.tools import Workspace
+
+from .origami.harness import SYSTEM_PROMPT as BENCHMARK_PROMPT
+from .origami.harness import Submission, make_submit_tool
 from .origami.oxdna import OxDNAConfig, config_from_env
 from .origami.scoring import evaluate_submission
-from .origami.tools import Workspace
 
 ROOT = Path(__file__).resolve().parents[2]
 
 
 def load_yaml(path: Path) -> dict[str, Any]:
-    return yaml.safe_load(path.read_text())
+    return yaml.safe_load(path.read_text(encoding="utf-8"))
 
 
 def load_task(task_id: str) -> dict[str, Any]:
@@ -61,43 +65,32 @@ def _usage_totals(usage: dict[str, Any]) -> dict[str, int]:
     return tot
 
 
-def run_agent(task: dict, model_cfg: dict, oxdna: OxDNAConfig, agent_cfg: dict, run_dir: Path, seed: int) -> dict:
-    ws = Workspace(
-        root=run_dir / "workspace",
-        spec=task["spec"],
-        oxdna=oxdna,
-        max_simulations=agent_cfg.get("max_simulations", 4),
-        script_timeout_s=agent_cfg.get("script_timeout_s", 180),
-    )
+def run_agent(task: dict, model_cfg: dict, agent_cfg: dict, run_dir: Path, seed: int) -> dict:
+    """Run the shipped agent on a task; the benchmark adds only `submit_design` and the run budget."""
+    ws = Workspace(root=run_dir / "workspace", script_timeout_s=agent_cfg.get("script_timeout_s", 180))
     (ws.root / "designs").mkdir(parents=True, exist_ok=True)
+    sub = Submission(spec=task["spec"])
     model = make_model(model_cfg["model"], **model_cfg.get("kwargs", {}))
-    agent = build_agent(model, ws)
+    budget = Budget(
+        max_model_calls=agent_cfg.get("max_model_calls", 120),
+        wall_timeout_s=agent_cfg.get("wall_timeout_s", 3600),
+        cost_cap_usd=agent_cfg.get("cost_cap_usd"),
+        submitted_fn=lambda: sub.record is not None,
+    )
+    agent = build_agent(
+        model, ws, extra_tools=[make_submit_tool(ws, sub)], system_prompt=BENCHMARK_PROMPT,
+        middleware=[BudgetMiddleware(budget)],
+    )
 
-    info: dict[str, Any] = {"task": task["id"], "model": model_cfg["id"], "seed": seed, "termination": "completed"}
-    state: dict[str, Any] = {"messages": []}
-    deadline = time.time() + agent_cfg.get("wall_timeout_s", 3600)
+    info: dict[str, Any] = {"task": task["id"], "model": model_cfg["id"], "seed": seed}
     t0 = time.time()
     with get_usage_metadata_callback() as cb:
-        try:
-            for state in agent.stream(
-                {"messages": [{"role": "user", "content": task["prompt"]}]},
-                config={"recursion_limit": agent_cfg.get("recursion_limit", 400)},
-                stream_mode="values",
-            ):
-                if time.time() > deadline:
-                    info["termination"] = "wall_timeout"
-                    break
-        except GraphRecursionError:
-            info["termination"] = "recursion_limit"
-        except Exception as e:  # noqa: BLE001 - provider/API errors are a result, not a crash
-            info["termination"] = "error"
-            info["error"] = f"{type(e).__name__}: {e}"
-            info["traceback"] = traceback.format_exc()
+        prices = model_cfg.get("price_per_mtok")
+        budget.cost_fn = lambda: (estimate_cost(dict(cb.usage_metadata), prices) or {}).get("total_usd")
+        messages, ended = drive_agent(agent, task["prompt"], budget, agent_cfg, trace=_trace_config(run_dir, task, model_cfg, seed))
         usage = dict(cb.usage_metadata)
+    info.update(ended)
 
-    messages = state.get("messages", [])
-    if info["termination"] == "completed" and messages and _hit_output_limit(messages[-1]):
-        info["termination"] = "output_limit"  # the model's last turn was cut off, not a deliberate stop
     (run_dir / "transcript.json").write_text(json.dumps(messages_to_dict(messages), indent=1, default=str))
     ai = [m for m in messages if isinstance(m, AIMessage)]
     info.update(
@@ -105,16 +98,98 @@ def run_agent(task: dict, model_cfg: dict, oxdna: OxDNAConfig, agent_cfg: dict, 
         n_messages=len(messages),
         n_model_calls=len(ai),
         tool_calls=_count_tool_calls(ai),
-        simulations_used=ws.sim_count,
-        submitted=ws.submitted,
+        submitted=sub.record,
+        budget=budget.snapshot(),
         usage=usage,
         tokens=_usage_totals(usage),
         final_message=(ai[-1].text if ai else "")[:4000],
     )
-    if cost := estimate_cost(usage, model_cfg.get("price_per_mtok")):
+    if cost := estimate_cost(usage, prices):
         info["cost"] = cost
         info["cost_usd"] = cost["total_usd"]
     return info
+
+
+# Why a run ended, as told to the model in the last-chance message.
+LAST_CHANCE_REASONS = {
+    "completed": "you ended your turn",
+    "output_limit": "your replies kept hitting the output token limit",
+    "step_limit": "model-call limit reached",
+    "recursion_limit": "step limit reached",
+    "wall_timeout": "time limit reached",
+    "cost_cap": "cost cap reached",
+}
+
+
+def _trace_config(run_dir: Path, task: dict, model_cfg: dict, seed: int) -> dict[str, Any]:
+    """Name, tags and metadata for the run's trace (LangSmith, when LANGSMITH_TRACING is set)."""
+    experiment = run_dir.parents[2].name
+    return {
+        "run_name": f"{task['id']} · {model_cfg['id']} · {run_dir.name}",
+        "tags": [experiment, task["id"], model_cfg["id"]],
+        "metadata": {"experiment": experiment, "task": task["id"], "model": model_cfg["id"], "seed": seed,
+                     "run_dir": run_dir.relative_to(ROOT).as_posix() if run_dir.is_relative_to(ROOT) else str(run_dir)},
+    }
+
+
+def drive_agent(agent: Any, prompt: str, budget: Budget, agent_cfg: dict, trace: dict | None = None) -> tuple[list, dict]:
+    """Run the agent within its budget, then give one last chance to submit if it ended without a submission.
+
+    Returns the full message history and `{"termination": ..., "last_chance": {...}}`; `termination` is why
+    the main phase ended and `last_chance` is present only when one was given.
+    """
+    # recursion_limit is a backstop; `max_model_calls` is the real budget
+    config = {"recursion_limit": agent_cfg.get("recursion_limit", 1000), **(trace or {})}
+    messages: list = [HumanMessage(prompt)]
+    cut_offs = 0
+    while True:
+        messages, termination, error = _stream(agent, messages, config, budget.exceeded)
+        if termination != "output_limit" or cut_offs >= agent_cfg.get("max_cut_off_replies", 5) or budget.exceeded():
+            break
+        # A reply cut off at max_tokens is our limit, not the model stopping: drop it (a half-written tool
+        # call can't be replayed) and let the model carry on within its budget.
+        cut_offs += 1
+        messages = [*messages[:-1], HumanMessage(CUT_OFF_MESSAGE)]
+    ended: dict[str, Any] = {"termination": termination, **error}
+    if cut_offs:
+        ended["cut_off_replies"] = cut_offs
+    calls = agent_cfg.get("last_chance_calls", 10)
+    if budget.submitted_fn() or termination not in LAST_CHANCE_REASONS or calls <= 0:
+        return messages, ended
+
+    budget.last_chance = True
+    limit = budget.model_calls + calls
+    deadline = time.time() + agent_cfg.get("last_chance_timeout_s", 600)
+
+    def stop() -> str | None:
+        if budget.model_calls >= limit:
+            return "step_limit"
+        return "wall_timeout" if time.time() > deadline else None
+
+    nudge = HumanMessage(LAST_CHANCE_MESSAGE.format(reason=LAST_CHANCE_REASONS[termination], calls=calls))
+    last_config = {**config, "tags": [*config.get("tags", []), "last_chance"]}
+    messages, last_termination, error = _stream(agent, [*messages, nudge], last_config, stop)
+    ended["last_chance"] = {"termination": last_termination, "submitted": budget.submitted_fn(), **error}
+    return messages, ended
+
+
+def _stream(agent: Any, messages: list, config: dict, stop: Callable[[], str | None]) -> tuple[list, str, dict]:
+    """Stream the agent until it finishes or `stop()` names a reason. Returns (messages, termination, error)."""
+    state: dict[str, Any] = {"messages": messages}
+    try:
+        for state in agent.stream({"messages": messages}, config=config, stream_mode="values"):
+            if state["messages"] and isinstance(state["messages"][-1], AIMessage):
+                continue  # check only after tool results: requested tools still run, and a final reply ends normally
+            if reason := stop():
+                return state["messages"], reason, {}
+    except GraphRecursionError:
+        return state["messages"], "recursion_limit", {}
+    except Exception as e:  # noqa: BLE001 - provider/API errors are a result, not a crash
+        return state["messages"], "error", {"error": f"{type(e).__name__}: {e}", "traceback": traceback.format_exc()}
+    out = state["messages"]
+    if out and _hit_output_limit(out[-1]):
+        return out, "output_limit", {}  # the model's last turn was cut off, not a deliberate stop
+    return out, "completed", {}
 
 
 def _hit_output_limit(msg: Any) -> bool:
@@ -151,7 +226,7 @@ def run_one(exp: dict, task_id: str, model_cfg: dict, rep: int, oxdna: OxDNAConf
     run_dir.mkdir(parents=True, exist_ok=True)
     task = load_task(task_id)
     print(f"[run ] {task_id} | {model_cfg['id']} | rep{rep}")
-    info = run_agent(task, model_cfg, oxdna, exp.get("agent", {}), run_dir, seed=rep)
+    info = run_agent(task, model_cfg, exp.get("agent", {}), run_dir, seed=rep)
     (run_dir / "agent.json").write_text(json.dumps(info, indent=1, default=str))
     if _infra_failure(info):
         print(f"[fail] {task_id} | {model_cfg['id']} | rep{rep}: {info['error']} (not graded; rerun to retry)")

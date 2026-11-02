@@ -1,18 +1,14 @@
----
-name: oxdna-testing
-description: How to test a DNA origami design with the simulate_design tool (oxDNA2 coarse-grained MD) and interpret base-pair occupancy, RMSF, RMSD, extents, shape fidelity and backbone-bond reports. Read before your first simulation.
----
+# oxDNA metrics
 
-# Testing designs with oxDNA
+Reference for reading the grader's oxDNA results (`eval/` in each run, and `simulate()` in
+`synbio_bench.origami.oxdna`). This used to be an agent skill. Agents no longer run oxDNA: it is used only to
+grade submitted designs in the internal benchmark.
 
-`simulate_design(design_path)` exports the design to oxDNA (oxDNA2 model, 1 M NaCl, 25 °C) and runs:
+A simulation exports the design to oxDNA (oxDNA2 model, 1 M NaCl, 25 °C) and runs:
 
 1. **MC relaxation** with capped backbone forces, which pulls the idealized scadnano geometry together.
 2. **MD relaxation** (capped forces, damped thermostat).
 3. **Production MD**. Metrics are computed over the second half of the trajectory.
-
-The simulation budget per task is small, and each run takes minutes. Always clear every error from
-`validate_design_file` first.
 
 ## Reading the output
 

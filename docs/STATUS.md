@@ -1,16 +1,23 @@
-# Project status (last updated 2026-11-01)
+# Project status (last updated 2026-11-02)
 
 A snapshot for picking the work back up. The README covers how the harness works; this file covers
 what has been run, what was found, and what is still open.
 
 ## What exists
 
-- Harness: LangChain deep agent with scadnano design tools, an oxDNA simulation tool, skills, a grader,
-  and HTML reports with figures. It is model-agnostic, configured in `configs/models.yaml`.
-- Tasks: 4 core 3D tasks (`tasks/origami/`), 18 flat-shape × size tasks (`tasks/origami-shapes/`), and
-  2 Rothemund rectangles (`tasks/origami-rothemund/`).
-- Reference designs (positive controls): the 6HB (`reference_designs/hb6_honeycomb.py`) and the Rothemund
-  rectangles from cadnano, plus a `-twistfix` variant (`reference_designs/rothemund.py`).
+- Shipped agent (`src/origami_agent/`): LangChain deep agent with scadnano design tools and design skills.
+  No oxDNA; it checks a design (structurally) only when asked. Model-agnostic via `configs/models.yaml`.
+- Internal benchmark (`src/synbio_bench/`): runs the shipped agent unchanged, adds `submit_design` and a run
+  budget, and grades submissions with spec checks plus oxDNA. HTML reports with figures.
+- Tasks: 4 core 3D tasks (`tasks/origami/`), 18 flat-shape × size tasks (`tasks/origami-shapes/`),
+  2 Rothemund rectangles (`tasks/origami-rothemund/`), and a wireframe tetrahedron
+  (`tasks/origami-wireframe/tetrahedron.yaml`).
+- Reference designs (positive controls): the 6HB (`reference_designs/hb6_honeycomb.py`), the Rothemund
+  rectangles from cadnano plus a `-twistfix` variant (`reference_designs/rothemund.py`), and a ~4000-nt
+  Rothemund-style sharp triangle (`reference_designs/sharp_triangle.py`: three 7-helix trapezoids in helix
+  groups rotated 0/120/240°, open centre, bridged seams), the reference for `origami-shapes/triangle-4000`;
+  and a DAEDALUS-style wireframe tetrahedron (`reference_designs/wireframe_tetrahedron.py`: six 84-bp
+  two-helix edges, each a helix group rotated in 3D, spanning-tree scaffold route, 1044 nt).
 - oxDNA runs in WSL Ubuntu on the GTX 1660 (CUDA), at `/usr/local/bin/oxDNA`.
 - Cost tracking is cache-aware. It was validated within 3.5% of OpenRouter's actual bill.
 
@@ -26,7 +33,33 @@ what has been run, what was found, and what is still open.
 An earlier DeepSeek attempt (archived in `runs/origami-pilot/_deepseek_rep0_16k_output_limit/`) used its
 whole 16k output cap on reasoning and stopped. The cap is now 64k.
 
-**Calibration (`runs/_calibration/`), Rothemund rectangle, 13,824 nt:**
+**Model comparison (`runs/origami-trio/`, `runs/triangle-domains/`, 1 run each, shape protocol, seed 1).**
+Full write-up: the "Origami Trio Model Comparison" artifact (rebuilt from `runs/origami-trio/model_comparison.html`).
+
+| task | Haiku 5.5 | Sonnet 5.5 | Opus 5.5 | reference |
+|---|---|---|---|---|
+| rectangle-4000 (overall / unrolled IoU) | 0.961 / 0.89 | 0.970 / 0.92 | 0.973 / 0.93 | – |
+| triangle-4000, raster prompt | 0.962 / 0.89 | 0.970 / 0.92 | 0.958 / 0.89 | – |
+| triangle-4000, domains allowed | 0.959 / 0.89 (raster) | 0.964 / 0.90 (raster) | **0.977 / 0.94 (trapezoids)** | 0.977 / 0.95 |
+| 6hb-honeycomb-3k (overall) | 0.9985 | 0.9983 | 0.9982 | – |
+| wireframe tetrahedron (overall / wireframe F1, 3 seeds) | 0.836 / 0.51 | 0.916 / 0.75 | **0.939 / 0.83** | 0.931 / 0.80 |
+
+- Scores barely separate the models; Haiku is ~10× cheaper per design ($0.04–0.08 vs $0.26–0.91).
+- The first triangle prompt forced a single raster, which frays at the apex. With domains allowed and a
+  sharp-corners section in the design-rules skill, only Opus switched to three bridged trapezoids; its
+  triangle is the flattest of any run (flatness 0.19; reference 0.26; rasters 0.32–0.42).
+- Wireframe tetrahedron (`runs/wireframe-tetrahedron/`): every model's design passed the spec and traced the
+  target exactly, and all kept >99% of base pairs. In simulation, Sonnet and Opus (both following the skill's
+  DAEDALUS recipe) hold the shape; Haiku used its own scaffold route with no vertex staples, and its corners hinge.
+  Seed-to-seed spread is ~±0.05 F1 (reference 0.71–0.90 over five runs), so Opus vs reference is a tie and
+  Opus vs Sonnet is suggestive only.
+- Haiku uses sparser crossovers (rectangle 162 vs 234; 6HB 141 vs ~280) and its bundle is floppier
+  (RMSD 2.2 vs 1.3 nm), which the 3D score doesn't see.
+- Spend so far $5.85 by our tracking. LangSmith's price maps are wrong for Sonnet 5.5 cache reads ($0.10
+  vs $0.20/M, ~15% low) and for Haiku 5.5 (~50% high); not changed (needs the user's OK).
+
+**Calibration (`runs/_calibration/`), Rothemund rectangle, 13,824 nt** (unrolled IoU here is from the
+first, MDS-only unroll; the current unroll reads ~0.02 higher on rectangles):
 
 | protocol | design | bp formed | **unrolled IoU (graded)** | projected IoU | flatness | time |
 |---|---|---|---|---|---|---|
@@ -55,26 +88,52 @@ Other calibration facts:
 
 ## Open decisions (in rough priority order)
 
+Added 2026-11-02: 3D wireframe polyhedra. `wireframe:` in a task spec (type, edge_nm, tube_nm, min_f1) adds a
+spec check on the design's own coordinates and a graded shape score: the oxDNA mean structure is fitted (ICP)
+onto the ideal polyhedron's edges, and F1 combines precision (nucleotides within 3.5 nm of an edge) and recall
+(edge interiors with DNA nearby) (`src/synbio_bench/origami/wireframe.py`; tetrahedron, cube, octahedron). The
+score is noisy across oxDNA seeds, so the wireframe experiment grades with three seeds. Open: more wireframe
+tasks (cube, octahedron, larger edges), and whether a longer protocol settles the bowing seen on every design.
+
+Resolved 2026-11-02: multi-domain flat shapes. The shape prompts allow several domains (helix groups
+rotated within the sheet's plane), joined by the scaffold and bridging staples. Grading changes:
+`planar` means every helix axis lies in one plane; the footprint of multi-group designs is drawn from the
+real helix axes; enclosed holes are filled before IoU; the unroll follows crossovers through short loops and
+seams the design sets side by side, and refines the MDS layout against short 3D distances (on flat test
+designs it matches the exact outline within 0.01; the old MDS-only unroll read raster triangles up to 0.02
+high). All origami-trio flat runs were re-analysed. The grader also re-relaxes (up to 3 rounds) when a
+backbone bond is still past oxDNA's FENE limit after relaxation; one Opus triangle failed production on a
+stretched 10-T loop before this.
+
 Resolved: flat-shape scoring now uses the unrolled sheet. Because that score is the same on every
 protocol, the shorter `shape` grading protocol (~22 min per full-size design) is adequate. The standard
 protocol only adds in-solution behaviour (rolling). The CUDA crash fix (`max_density_multiplier: 10`)
 is confirmed on the 13,824-nt twist-fixed run.
 
-1. **Harness policy:** should a model that stops without submitting get one reminder? Should there be a
-   per-run token or cost cap? (DeepSeek used 5.1M tokens on one small task.)
-2. **Where to run long experiments:** a rented cloud GPU is recommended. To do: a bootstrap script for a
+Resolved 2026-11-02: oxDNA is benchmark-only. The agent no longer simulates or validates during runs
+(it has a structural `check_design` it uses only on request), so scores measure the agent as shipped.
+**This changes the task:** the pilot and calibration-era agents could simulate up to 4 times and validate
+against the spec. Rerun the pilot before comparing models.
+
+Resolved 2026-11-02: the stalled-run policy (README, "Run budget"). DeepSeek's pilot run never stopped on
+its own: it spent all its calls hand-optimising staple routing and never built, validated or submitted a
+design. Runs now get budget notices at 50/75/90%, one last chance to submit when the budget ends, and a
+high cost cap as a safety net. The pilot predates this policy; rerun it before comparing models.
+
+1. **Where to run long experiments:** a rented cloud GPU is recommended. To do: a bootstrap script for a
    fresh Ubuntu GPU machine, `OXDNA_MODE=local`, resumable `compare_protocols.py`, and docs on copying
    `runs/` back.
-3. Reference designs for the 4HB, 8-helix sheet, 12HB and shape tasks (positive controls).
-4. Repeats: the pilot had n=1 per model. Use ≥3 repeats for real comparisons.
-5. Choose a licence before making the repo public. The Rothemund cadnano files are CC BY-SA via
+2. Reference designs for the 4HB, 8-helix sheet, 12HB and the other shape tasks (positive controls). The
+   star likely needs the same domain treatment as the triangle; `sharp_triangle.py` is fixed at ~4000 nt.
+3. Repeats: the pilot had n=1 per model. Use ≥3 repeats for real comparisons.
+4. Choose a licence before making the repo public. The Rothemund cadnano files are CC BY-SA via
    OpenWetware; see `reference_designs/cadnano/SOURCES.md`.
 
 ## Resuming
 
 ```bash
 uv sync
-uv run pytest                                   # 18 tests, no API keys or oxDNA needed
+uv run pytest                                   # 39 tests, no API keys or oxDNA needed
 uv run synbio-bench --experiment configs/pilot.yaml report        # rebuild the pilot report
 uv run synbio-bench --experiment configs/pilot.yaml report --embed
 ```

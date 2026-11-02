@@ -20,11 +20,18 @@ from typing import Any
 
 import numpy as np
 
+from origami_agent.design import load_design, nucleotide_map
+
 from . import analysis
-from .design import load_design, nucleotide_map
 
 # One GPU, one simulation at a time, even when agents run in parallel threads.
 _SIM_LOCK = threading.Lock()
+
+# oxDNA2's FENE backbone diverges at r0 + delta = 0.7564 + 0.25 oxDNA units between backbone sites;
+# production MD exits if any bond starts beyond it. Relaxation (with capped backbone forces) gets more
+# rounds while a bond is still past this margin.
+MAX_BACKBONE_BOND_OX = 0.98
+EXTRA_RELAX_ROUNDS = 3
 
 
 @dataclass
@@ -253,6 +260,7 @@ def simulate(
     seed: int = 1,
     reanalyze: bool = False,
     shape: dict[str, Any] | None = None,
+    wireframe: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Export, relax, run production MD and analyse. Never raises for simulation failures.
 
@@ -263,7 +271,7 @@ def simulate(
     previous = work / "result.json"
     if reanalyze and previous.exists() and json.loads(previous.read_text()).get("ok"):
         result = json.loads(previous.read_text())
-        result["metrics"] = analysis.analyze_run(work, shape)
+        result["metrics"] = analysis.analyze_run(work, shape, wireframe)
         previous.write_text(json.dumps(result, indent=2))
         return result
     if work.exists():
@@ -281,33 +289,52 @@ def simulate(
 
     result["initial_backbone"] = analysis.backbone_report(work / "initial.top", work / "initial.dat", work / "index_map.json")
     inputs = build_inputs(cfg, protocol, seed)
-    timings = {}
+    timings: dict[str, float] = {}
+
+    def run(stage: str, opts: dict[str, Any]) -> bool:
+        write_input(work / f"input_{stage}", opts)
+        t0 = time.time()
+        try:
+            proc = _run_stage(cfg, work, f"input_{stage}", opts)
+        except subprocess.TimeoutExpired:
+            result.update(ok=False, failed_stage=stage, error=f"timed out after {cfg.timeout_s}s")
+            return False
+        except FileNotFoundError as e:
+            result.update(ok=False, failed_stage=stage, error=f"oxDNA runner not found: {e}")
+            return False
+        timings[stage] = round(time.time() - t0, 1)
+        (work / f"log_{stage}.txt").write_text(proc.stdout + "\n--- stderr ---\n" + proc.stderr)
+        if proc.returncode != 0 or not (work / opts["lastconf_file"]).exists():
+            result.update(
+                ok=False,
+                failed_stage=stage,
+                error=f"oxDNA exited with code {proc.returncode}",
+                log_tail=_tail(proc.stderr or proc.stdout),
+            )
+            return False
+        return True
+
     with _SIM_LOCK:
         for stage, opts in inputs.items():
-            write_input(work / f"input_{stage}", opts)
-            t0 = time.time()
-            try:
-                proc = _run_stage(cfg, work, f"input_{stage}", opts)
-            except subprocess.TimeoutExpired:
-                result.update(ok=False, failed_stage=stage, error=f"timed out after {cfg.timeout_s}s")
+            if not run(stage, opts):
                 return result
-            except FileNotFoundError as e:
-                result.update(ok=False, failed_stage=stage, error=f"oxDNA runner not found: {e}")
-                return result
-            timings[stage] = round(time.time() - t0, 1)
-            (work / f"log_{stage}.txt").write_text(proc.stdout + "\n--- stderr ---\n" + proc.stderr)
-            if proc.returncode != 0 or not (work / opts["lastconf_file"]).exists():
-                result.update(
-                    ok=False,
-                    failed_stage=stage,
-                    error=f"oxDNA exited with code {proc.returncode}",
-                    log_tail=_tail(proc.stderr or proc.stdout),
-                )
-                return result
+            if stage == "relax_md" and cfg.mode != "mock":
+                # Production MD refuses to start if any bond is still longer than the backbone potential
+                # allows (e.g. a long unpaired loop still being pulled in). Keep relaxing for a few rounds.
+                for k in range(1, EXTRA_RELAX_ROUNDS + 1):
+                    worst = analysis.max_backbone_site_bond(work / "initial.top", work / "relaxed.dat")
+                    result["relaxed_max_backbone_bond"] = round(worst, 3)
+                    if worst <= MAX_BACKBONE_BOND_OX:
+                        break
+                    more = {**opts, "conf_file": "relaxed.dat", "lastconf_file": "relaxed.dat",
+                            "trajectory_file": f"traj_relax_md_{k}.dat", "energy_file": f"energy_relax_md_{k}.dat"}
+                    if not run(f"relax_md_{k}", more):
+                        return result
+                    result["extra_relax_rounds"] = k
     result["stage_seconds"] = timings
 
     try:
-        result["metrics"] = analysis.analyze_run(work, shape)
+        result["metrics"] = analysis.analyze_run(work, shape, wireframe)
         result["ok"] = True
     except Exception as e:  # noqa: BLE001
         result.update(ok=False, failed_stage="analysis", error=f"{type(e).__name__}: {e}")

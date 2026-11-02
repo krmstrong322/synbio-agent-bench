@@ -9,6 +9,8 @@ sim_score  : mean fraction of designed base pairs formed in the evaluation simul
 shape_score: (shape tasks) IoU of the simulated sheet, unrolled along its surface, with the target shape
              (rolling/bending in solution doesn't count; tearing does). The projected outline and
              flatness are reported separately.
+             (wireframe tasks) F1 of the simulated mean structure traced onto the target polyhedron's edges
+             (see wireframe.py).
 All raw metrics are kept so other weightings can be computed later.
 """
 
@@ -18,7 +20,7 @@ import statistics
 from pathlib import Path
 from typing import Any
 
-from .design import validate_design
+from .spec import validate_design
 from .oxdna import OxDNAConfig, simulate
 
 HARD_ERROR_PREFIXES = ("could not load", "illegal", "two nucleotides", "no strand is marked")
@@ -35,7 +37,8 @@ def evaluate_submission(
     reanalyze: bool = False,
 ) -> dict[str, Any]:
     weights = weights or {"spec": 0.5, "sim": 0.5}
-    if "shape" in spec and "shape" not in weights:
+    shaped = "shape" in spec or "wireframe" in spec
+    if shaped and "shape" not in weights:
         weights = {"spec": 1 / 3, "sim": 1 / 3, "shape": 1 / 3}
     if not design_path.is_file():
         return {"submitted": False, "valid": False, "overall": 0.0, "spec_score": 0.0, "sim_score": 0.0}
@@ -54,15 +57,18 @@ def evaluate_submission(
     if valid:
         for seed in seeds:
             r = simulate(design_path, out_dir / f"seed_{seed}", oxdna, protocol=protocol, seed=seed,
-                         reanalyze=reanalyze, shape=spec.get("shape"))
+                         reanalyze=reanalyze, shape=spec.get("shape"), wireframe=spec.get("wireframe"))
             sims.append(r)
             m = r.get("metrics", {}) if r.get("ok") else {}
             bp.append(m.get("bp_fraction_mean") or 0.0)
-            shape_iou.append((m.get("shape_unrolled") or {}).get("iou", 0.0))
+            if "wireframe" in spec:
+                shape_iou.append((m.get("wireframe_fit") or {}).get("f1", 0.0))
+            else:
+                shape_iou.append((m.get("shape_unrolled") or {}).get("iou", 0.0))
     sim_score = statistics.mean(bp) if bp else 0.0
     shape_score = statistics.mean(shape_iou) if shape_iou else 0.0
     overall = weights["spec"] * spec_score + weights["sim"] * sim_score
-    if "shape" in spec:
+    if shaped:
         overall += weights.get("shape", 0.0) * shape_score
 
     def mean_metric(key: str, sub: str | None = None) -> float | None:
@@ -77,7 +83,7 @@ def evaluate_submission(
         "valid": valid,
         "spec_score": round(spec_score, 4),
         "sim_score": round(sim_score, 4),
-        "shape_score": round(shape_score, 4) if "shape" in spec else None,
+        "shape_score": round(shape_score, 4) if shaped else None,
         "overall": round(overall, 4) if valid else 0.0,
         "errors": v["errors"],
         "warnings": v["warnings"],
@@ -90,6 +96,8 @@ def evaluate_submission(
         "rmsd_to_design_nm": mean_metric("rmsd_mean_structure_to_design_nm"),
         "shape_projected_iou": mean_metric("shape_fidelity", "iou"),
         "flatness": mean_metric("shape_fidelity", "flatness"),
+        "wireframe_precision": mean_metric("wireframe_fit", "precision"),
+        "wireframe_recall": mean_metric("wireframe_fit", "recall"),
         "initial_stretched_bonds": sims[0]["initial_backbone"]["num_stretched_bonds"] if sims and "initial_backbone" in sims[0] else None,
         "sim_runner": oxdna.mode,
         "protocol": protocol,

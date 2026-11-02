@@ -12,7 +12,7 @@ from pathlib import Path
 import scadnano as sc
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
-from synbio_bench.origami.geometry import crossover_positions  # noqa: E402
+from origami_agent.geometry import crossover_positions  # noqa: E402
 
 
 def pick_near(options: list[int], target: int) -> int:

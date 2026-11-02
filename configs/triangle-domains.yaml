@@ -1,0 +1,17 @@
+# Haiku, Sonnet and Opus on the ~4000-nt triangle after the task and skills allow multi-domain sheets
+# (Rothemund's sharp triangle: three trapezoids with bridged seams). Compare with origami-trio's raster triangles.
+name: triangle-domains
+tasks:
+  - origami-shapes/triangle-4000
+models: [claude-haiku-5-5, claude-sonnet-5-5, claude-opus-5-5]
+repeats: 1
+agent:
+  max_model_calls: 120
+  wall_timeout_s: 5400
+  cost_cap_usd: 15.0
+  last_chance_calls: 10
+  recursion_limit: 1000
+  script_timeout_s: 300
+evaluation:
+  protocol: shape            # oxDNA grading; run separately with `evaluate`
+  seeds: [1]

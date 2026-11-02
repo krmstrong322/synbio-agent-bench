@@ -1,0 +1,19 @@
+# Haiku, Sonnet and Opus on three mid-size designs (2k-5k nt): a flat rectangle, a flat triangle and a long 6HB.
+name: origami-trio
+tasks:
+  - origami-shapes/rectangle-4000
+  - origami-shapes/triangle-4000
+  - origami/6hb-honeycomb-3k
+models: [claude-haiku-5-5, claude-sonnet-5-5, claude-opus-5-5]
+repeats: 1
+agent:
+  max_model_calls: 120
+  wall_timeout_s: 5400
+  cost_cap_usd: 15.0
+  last_chance_calls: 10
+  recursion_limit: 1000
+  script_timeout_s: 300
+evaluation:
+  protocol: shape            # oxDNA grading; run separately with `evaluate`
+  seeds: [1]
+  # weights come from the task files (shapes: spec/sim/shape 1/3 each; 6HB: spec/sim 0.5 each)

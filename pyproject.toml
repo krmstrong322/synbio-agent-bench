@@ -1,7 +1,7 @@
 [project]
 name = "synbio-bench"
 version = "0.1.0"
-description = "Model-agnostic agent benchmark for synthetic biology design tasks (DNA origami: scadnano + oxDNA)"
+description = "DNA origami design agent (scadnano) and the internal benchmark that grades it with oxDNA"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
@@ -29,4 +29,4 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/synbio_bench"]
+packages = ["src/origami_agent", "src/synbio_bench"]

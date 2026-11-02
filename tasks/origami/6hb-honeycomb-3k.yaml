@@ -1,0 +1,23 @@
+id: origami/6hb-honeycomb-3k
+title: Six-helix bundle, honeycomb lattice, ~3000-nt scaffold
+difficulty: 3
+prompt: |
+  Design a long six-helix bundle (6HB) DNA origami nanotube on the honeycomb lattice: six helices arranged
+  in a closed hexagonal ring, each about 500 bp long (about 170 nm).
+
+  Requirements:
+  - honeycomb lattice; exactly 6 helices forming a closed ring (each helix touches 2 others)
+  - 480-520 base pairs on every helix
+  - a single scaffold strand that is a contiguous fragment of M13mp18, 2900-3150 nt long
+  - at least 95% of the scaffold base-paired to staples
+  - every staple 18-60 nt long
+  - every adjacent pair of helices joined by staple crossovers along its length
+
+  Save your design under /designs/ and submit it with submit_design.
+spec:
+  grid: honeycomb
+  num_helices: 6
+  helix_bp: [480, 520]
+  min_neighbors_per_helix: 2
+  scaffold: {count: 1, source: m13, length: [2900, 3150], min_paired_fraction: 0.95}
+  staple_length: [18, 60]

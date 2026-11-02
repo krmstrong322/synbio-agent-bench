@@ -147,6 +147,16 @@ def _slot_label(slot: list | None) -> str:
     return f"helix {h} offset {off}{'' if ins < 0 else f' ins{ins}'} {'fwd' if fwd else 'rev'}"
 
 
+def max_backbone_site_bond(top: str | Path, conf: str | Path) -> float:
+    """Longest bonded backbone-site distance in oxDNA units (what oxDNA checks before MD starts)."""
+    _, n3 = read_topology(top)
+    _, body = read_conf(conf)
+    r, a1, a3 = body[:, 0:3], body[:, 3:6], body[:, 6:9]
+    site = r - 0.34 * a1 + 0.3408 * np.cross(a3, a1)  # oxDNA2 backbone site
+    i = np.nonzero(n3 >= 0)[0]
+    return float(np.linalg.norm(site[i] - site[n3[i]], axis=1).max())
+
+
 def backbone_report(top: Path, conf: Path, index_map: Path | None = None) -> dict[str, Any]:
     _, n3 = read_topology(top)
     _, body = read_conf(conf)
@@ -194,8 +204,10 @@ def _low_occupancy_regions(pairs: list[tuple[int, int]], occ: np.ndarray, slots:
     return sorted(regions, key=lambda r: -r["n_pairs"])[:15]
 
 
-def analyze_run(work: str | Path, shape: dict[str, Any] | None = None) -> dict[str, Any]:
-    """Metrics for a finished production run; `shape` adds flat-shape fidelity of the mean structure."""
+def analyze_run(work: str | Path, shape: dict[str, Any] | None = None,
+                wireframe: dict[str, Any] | None = None) -> dict[str, Any]:
+    """Metrics for a finished production run; `shape` adds flat-shape fidelity of the mean structure and
+    `wireframe` how well it traces a target polyhedron's edges."""
     work = Path(work)
     strand, n3 = read_topology(work / "initial.top")
     n = len(strand)
@@ -264,10 +276,14 @@ def analyze_run(work: str | Path, shape: dict[str, Any] | None = None) -> dict[s
         from .shapes import simulated_shape_iou, unrolled_shape_iou
 
         # graded: the sheet flattened along its own surface (rolling/bending don't count, tearing does)
-        metrics["shape_unrolled"], unrolled = unrolled_shape_iou(mean * OX_TO_NM, slots, n3, shape)
+        metrics["shape_unrolled"], unrolled = unrolled_shape_iou(mean * OX_TO_NM, slots, n3, shape, ref * OX_TO_NM)
         unrolled_xy = unrolled.get("xy", unrolled_xy)
         # descriptive: how the sheet sits in solution
         metrics["shape_fidelity"] = simulated_shape_iou(mean * OX_TO_NM, shape)
+    if wireframe:
+        from .wireframe import fit_wireframe
+
+        metrics["wireframe_fit"] = fit_wireframe(mean * OX_TO_NM, wireframe)
 
     # per-nucleotide data for figures (see viz.py)
     np.savez_compressed(

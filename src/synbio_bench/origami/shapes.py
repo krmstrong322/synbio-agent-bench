@@ -104,6 +104,7 @@ def best_iou(cells: np.ndarray, shape: dict[str, Any], angle_step: float = 2.0) 
     poly_unit = shape_polygon(shape)
     if len(cells) == 0:
         return {"iou": 0.0, "angle_deg": 0.0}
+    cells = fill_holes(cells)
     area = len(cells) * PX_NM**2
     centre = cells.mean(0)
     poly0 = poly_unit * np.sqrt(area)
@@ -139,8 +140,94 @@ def best_iou(cells: np.ndarray, shape: dict[str, Any], angle_step: float = 2.0) 
     return {"iou": round(float(best_val), 4), "angle_deg": float(best_t), "polygon": placed.round(2).tolist()}
 
 
+def fill_holes(cells: np.ndarray) -> np.ndarray:
+    """Add the pixels enclosed by a mask, so a shape is judged by its outline (a hollow triangle counts as a triangle)."""
+    from scipy.ndimage import binary_fill_holes
+
+    origin = cells.min(0)
+    idx = np.rint((cells - origin) / PX_NM).astype(int) + 1
+    img = np.zeros(idx.max(0) + 2, bool)
+    img[idx[:, 0], idx[:, 1]] = True
+    filled = np.argwhere(binary_fill_holes(img))
+    return (filled - 1) * PX_NM + origin
+
+
+def helix_frames(design: sc.Design) -> dict[int, tuple[np.ndarray, np.ndarray, float, float]]:
+    """Each helix's axis in 3D, as scadnano exports it: {helix: (origin_nm, unit direction, rise_nm, spacing_nm)}."""
+    from scadnano.scadnano import _oxdna_get_helix_vectors
+
+    out = {}
+    for idx, h in design.helices.items():
+        origin, forward, _ = _oxdna_get_helix_vectors(design, h)
+        geometry = design.groups[h.group].geometry or design.geometry
+        out[idx] = (np.array([origin.x, origin.y, origin.z]) * OX_TO_NM_EXPORT, np.array([forward.x, forward.y, forward.z]),
+                    geometry.rise_per_base_pair, geometry.distance_between_helices())
+    return out
+
+
+OX_TO_NM_EXPORT = 0.8518  # scadnano writes positions in oxDNA length units
+
+
+def planar_sheet(design: sc.Design, tol_nm: float = 1.0) -> bool:
+    """True if every helix axis lies in one plane, i.e. the design is a single flat layer.
+
+    Works for one lattice row and for several helix groups rotated within the sheet's plane.
+    """
+    frames = helix_frames(design)
+    if not frames:
+        return False
+    pts = []
+    for h, (o, f, rise, _) in frames.items():
+        hx = design.helices[h]
+        pts += [o + f * hx.min_offset * rise, o + f * hx.max_offset * rise]
+    pts = np.array(pts)
+    c = pts - pts.mean(0)
+    normal = np.linalg.svd(c, full_matrices=False)[2][-1]
+    return bool(np.abs(c @ normal).max() <= tol_nm)
+
+
+def _paired_runs(design: sc.Design) -> dict[int, list[tuple[int, int]]]:
+    paired: dict[tuple[int, bool], set[int]] = {}
+    for strand in design.strands:
+        for d in strand.domains:
+            if isinstance(d, sc.Domain):
+                paired.setdefault((d.helix, d.forward), set()).update(range(d.start, d.end))  # type: ignore[arg-type]
+    return {h: _runs(sorted(paired.get((h, True), set()) & paired.get((h, False), set()))) for h in design.helices}
+
+
+def _group_footprint_cells(design: sc.Design) -> np.ndarray | None:
+    """Footprint of a design made of several helix groups: each paired run drawn as a band one helix spacing wide
+    around its real axis, in the sheet's plane."""
+    if not planar_sheet(design):
+        return None
+    frames = helix_frames(design)
+    allpts = np.array([o for o, *_ in frames.values()] + [o + f * 50 for o, f, *_ in frames.values()])
+    centre = allpts.mean(0)
+    basis = np.linalg.svd(allpts - centre, full_matrices=False)[2][:2]
+    step = PX_NM / 4
+    cells = set()
+    for h, runs in _paired_runs(design).items():
+        o, f, rise, spacing = frames[h]
+        f2 = basis @ f
+        f2 /= np.linalg.norm(f2)
+        side = np.array([-f2[1], f2[0]])
+        o2 = basis @ (o - centre)
+        across = np.arange(-spacing / 2 + step / 2, spacing / 2, step)
+        for a, b in runs:
+            along = np.arange(a * rise + step / 2, b * rise, step)
+            pts = o2 + along[:, None, None] * f2 + across[None, :, None] * side
+            cells.update(map(tuple, np.floor(pts.reshape(-1, 2) / PX_NM).astype(int)))
+    return (np.array(sorted(cells), dtype=float).reshape(-1, 2) + 0.5) * PX_NM
+
+
 def footprint_cells(design: sc.Design) -> np.ndarray | None:
-    """Pixel centres covered by designed base pairs, or None if the helices aren't in one flat row."""
+    """Pixel centres covered by designed base pairs, or None if the design isn't one flat layer.
+
+    One lattice row is drawn in (offset, row) coordinates with RISE_NM x PITCH_NM cells. Designs made of
+    several helix groups (e.g. trapezoids rotated in the sheet's plane) are drawn from their real helix axes.
+    """
+    if len({h.group for h in design.helices.values()}) > 1:
+        return _group_footprint_cells(design)
     helices = [h for h in design.helices.values() if h.grid_position is not None]
     if not helices or len(helices) != len(design.helices):
         return None
@@ -214,16 +301,16 @@ def _dilated_cells(xy: np.ndarray) -> np.ndarray:
 def design_shape_iou(design: sc.Design, shape: dict[str, Any]) -> dict[str, Any]:
     cells = footprint_cells(design)
     if cells is None:
-        return {"iou": 0.0, "error": "helices are not in a single flat row of the lattice"}
+        return {"iou": 0.0, "error": "helices are not in a single flat layer"}
     fit = best_iou(cells, shape)
-    fit.pop("polygon")  # only figures need it; keep tool output short
+    fit.pop("polygon", None)  # only figures need it; keep tool output short
     return fit
 
 
 def simulated_shape_iou(mean_structure_nm: np.ndarray, shape: dict[str, Any]) -> dict[str, Any]:
     cells, flatness = outline_cells(mean_structure_nm)
     out = best_iou(cells, shape)
-    out.pop("polygon")
+    out.pop("polygon", None)
     out["flatness"] = round(flatness, 3)
     return out
 
@@ -256,8 +343,24 @@ def crossover_helix_pairs(slots: list, n3: np.ndarray) -> set[tuple[int, int]]:
     return pairs
 
 
+def crossover_links(slots: list, n3: np.ndarray, max_loop: int = 8) -> list[tuple[tuple[int, int], tuple[int, int], int]]:
+    """Every backbone connection between two helices, also across short unpaired loops (e.g. bridging staples
+    between domains at an angle): [((helix, offset), (helix2, offset2), unpaired bases in between)]."""
+    links = []
+    for i, j in enumerate(n3):
+        if j < 0 or not slots[i]:
+            continue
+        loop = 0
+        while j >= 0 and not slots[j] and loop < max_loop:
+            j, loop = n3[j], loop + 1
+        if j >= 0 and slots[j] and slots[j][0] != slots[i][0]:
+            links.append(((slots[i][0], slots[i][1]), (slots[j][0], slots[j][1]), loop))
+    return links
+
+
 def unroll_sheet(
-    axis: dict[tuple[int, int], np.ndarray], helix_pairs: set[tuple[int, int]], step: int = UNROLL_STEP_BP
+    axis: dict[tuple[int, int], np.ndarray], helix_pairs: set[tuple[int, int]], step: int = UNROLL_STEP_BP,
+    links: list[tuple[tuple[int, int], tuple[int, int], int]] = (),
 ) -> dict[str, Any]:
     """Flatten a (possibly rolled or bent) sheet into 2D, preserving distances along its surface.
 
@@ -293,6 +396,16 @@ def unroll_sheet(
                 if j is not None and np.linalg.norm(pts[i] - pts[j]) <= np.hypot(UNROLL_MAX_GAP_NM, 1.3 * along):
                     rows.append(i)
                     cols.append(j)
+    # Crossovers between helices that don't run side by side (e.g. trapezoids meeting at a seam) join the
+    # sheet only where they actually connect.
+    for (h1, o1), (h2, o2), loop in links:
+        if h1 not in by_helix or h2 not in by_helix:
+            continue
+        i = idx[(h1, min(by_helix[h1], key=lambda o: abs(o - o1)))]
+        j = idx[(h2, min(by_helix[h2], key=lambda o: abs(o - o2)))]
+        if np.linalg.norm(pts[i] - pts[j]) <= UNROLL_MAX_GAP_NM + 0.6 * loop:
+            rows.append(i)
+            cols.append(j)
     n = len(keys)
     w = np.linalg.norm(pts[rows] - pts[cols], axis=1) + 1e-9
     graph = coo_matrix((w, (rows, cols)), shape=(n, n)).tocsr()
@@ -305,21 +418,73 @@ def unroll_sheet(
     vals, vecs = np.linalg.eigh(b)
     top = np.argsort(vals)[::-1][:2]
     xy = vecs[:, top] * np.sqrt(np.maximum(vals[top], 0))
+    xy = _local_stress_fit(xy, d, pts[main])
     return {"xy": xy, "keys": [keys[i] for i in main], "components": int(n_comp), "coverage": m / n}
 
 
+UNROLL_LOCAL_NM = 10.0  # only points this close along the surface shape the final layout
+UNROLL_FIT_ITERS = 200
+
+
+def _local_stress_fit(xy: np.ndarray, geodesic: np.ndarray, pts: np.ndarray) -> np.ndarray:
+    """Refine an MDS layout so that nearby points keep their true separation (weighted stress majorization).
+
+    Graph path lengths over-state distances: they zig-zag between helices, and across a hole (a hollow
+    triangle) or a notch they go around it, which classical MDS spreads over the whole layout. For points
+    within UNROLL_LOCAL_NM of each other along the surface, the straight 3D distance is within ~1% of the
+    surface distance even on a rolled sheet, so the layout is fitted to those alone.
+    """
+    w = ((geodesic > 0) & (geodesic <= UNROLL_LOCAL_NM)).astype(float)
+    if not w.any():
+        return xy
+    d = np.linalg.norm(pts[:, None] - pts[None], axis=-1)
+    v = -w
+    np.fill_diagonal(v, w.sum(1))
+    v_pinv = np.linalg.pinv(v)
+    x = xy.copy()
+    for _ in range(UNROLL_FIT_ITERS):
+        dist = np.linalg.norm(x[:, None] - x[None], axis=-1)
+        ratio = np.where(dist > 1e-9, w * d / np.maximum(dist, 1e-9), 0.0)
+        bmat = -ratio
+        np.fill_diagonal(bmat, ratio.sum(1))
+        x_new = v_pinv @ bmat @ x
+        if np.abs(x_new - x).max() < 1e-3:
+            return x_new
+        x = x_new
+    return x
+
+
+DESIGN_NEIGHBOUR_NM = 3.4  # helix-axis points this close in the designed geometry are neighbours on the sheet
+
+
+def designed_contacts(design_points_nm: np.ndarray, slots: list) -> list[tuple[tuple[int, int], tuple[int, int], int]]:
+    """Axis points on different helices that the design places side by side, e.g. across a seam between
+    trapezoids: [((helix, offset), (helix2, offset2), 0)]."""
+    from scipy.spatial import cKDTree
+
+    axis = helix_axis_points(design_points_nm, slots)
+    keys = list(axis)
+    tree = cKDTree(np.array([axis[k] for k in keys]))
+    return [(keys[i], keys[j], 0) for i, j in tree.query_pairs(DESIGN_NEIGHBOUR_NM) if keys[i][0] != keys[j][0]]
+
+
 def unrolled_shape_iou(
-    points_nm: np.ndarray, slots: list, n3: np.ndarray, shape: dict[str, Any]
+    points_nm: np.ndarray, slots: list, n3: np.ndarray, shape: dict[str, Any], design_points_nm: np.ndarray | None = None
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     """IoU of the unrolled sheet with the target. Returns (metrics, unroll data for figures).
 
     Points cut off from the main sheet (a torn piece) are left out, so tearing lowers the IoU.
+    `design_points_nm` (the designed starting geometry) adds contacts the design places side by side
+    without a crossover, such as seams between domains; they count only while they stay close.
     """
     axis = helix_axis_points(points_nm, slots)
     if len(axis) < 10:
         return {"iou": 0.0, "error": "too few paired helix-axis points to unroll"}, {}
-    unrolled = unroll_sheet(axis, crossover_helix_pairs(slots, n3))
+    links = crossover_links(slots, n3)
+    if design_points_nm is not None:
+        links += designed_contacts(design_points_nm, slots)
+    unrolled = unroll_sheet(axis, crossover_helix_pairs(slots, n3), links=links)
     fit = best_iou(_dilated_cells(unrolled["xy"]), shape)
-    fit.pop("polygon")
+    fit.pop("polygon", None)
     fit.update(components=unrolled["components"], coverage=round(unrolled["coverage"], 4))
     return fit, unrolled

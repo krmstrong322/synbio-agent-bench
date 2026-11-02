@@ -22,8 +22,9 @@ from typing import Any
 import numpy as np
 import scadnano as sc
 
+from origami_agent.design import load_design
+
 from . import shapes
-from .design import load_design
 
 SCAFFOLD_COLOR = "#2c5aa0"
 STAPLE_COLORS = ["#e15759", "#f28e2b", "#59a14f", "#b07aa1", "#9c755f", "#edc948", "#76b7b2", "#ff9da7", "#4e9a06", "#d37295"]

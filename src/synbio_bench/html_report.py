@@ -58,6 +58,12 @@ def _fmt(v: Any, digits: int = 2) -> str:
     return "–" if v is None else (f"{v:.{digits}f}" if isinstance(v, float) else escape(str(v)))
 
 
+def _last_chance_badge(info: dict) -> str:
+    if not (last := info.get("last_chance")):
+        return ""
+    return f'<span class="badge bad">last chance: {"submitted" if last.get("submitted") else "no submission"}</span>'
+
+
 def _card(run_dir: Path, info: dict, root: Path, embed: bool, figures: bool) -> str:
     g = info.get("grade", {})
     t = info.get("tokens", {})
@@ -67,12 +73,13 @@ def _card(run_dir: Path, info: dict, root: Path, embed: bool, figures: bool) -> 
     head = (
         f'<div class="head"><h3>{escape(info["model"])} · {escape(run_dir.name)}</h3>'
         f'<span class="badge {"ok" if term in ("completed", "reference") else "bad"}">{escape(term)}</span>'
-        f'<span class="badge {"ok" if valid else "bad"}">{"valid" if valid else "invalid"}</span>'
+        + _last_chance_badge(info)
+        + f'<span class="badge {"ok" if valid else "bad"}">{"valid" if valid else "invalid"}</span>'
         f'<span>overall <b>{_fmt(g.get("overall"))}</b></span></div>'
     )
     metrics = [
         ("spec", g.get("spec_score")), ("bp formed", g.get("bp_fraction_mean")), ("shape IoU", g.get("shape_score")),
-        ("RMSF nm", g.get("rmsf_mean_nm")), ("sims used", info.get("simulations_used")),
+        ("RMSF nm", g.get("rmsf_mean_nm")),
         ("tokens in/out k", f'{(t.get("input_tokens") or 0) / 1000:.0f} / {(t.get("output_tokens") or 0) / 1000:.0f}' if t else None),
         ("cost $", f'{info["cost_usd"]:.3f}' if info.get("cost_usd") is not None else None),
         ("time min", (info.get("wall_time_s") or 0) / 60 if info.get("wall_time_s") else None),

@@ -1,0 +1,17 @@
+# Haiku, Sonnet and Opus on the wireframe tetrahedron: six two-helix edges in rotated helix groups, graded on how
+# well the simulated structure traces a 35-nm tetrahedron (see src/synbio_bench/origami/wireframe.py).
+name: wireframe-tetrahedron
+tasks:
+  - origami-wireframe/tetrahedron
+models: [claude-haiku-5-5, claude-sonnet-5-5, claude-opus-5-5]
+repeats: 1
+agent:
+  max_model_calls: 120
+  wall_timeout_s: 5400
+  cost_cap_usd: 15.0
+  last_chance_calls: 10
+  recursion_limit: 1000
+  script_timeout_s: 300
+evaluation:
+  protocol: shape            # oxDNA grading; run separately with `evaluate`
+  seeds: [1, 2, 3]       # wireframe scores vary ~0.2 between seeds (reference: 0.71-0.90)

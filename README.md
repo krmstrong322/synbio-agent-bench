@@ -8,6 +8,14 @@ design tasks. The first task family is **DNA origami**: agents design structures
 The agent is built on [LangChain Deep Agents](https://docs.langchain.com/oss/python/deepagents/overview).
 Every model gets the identical harness (system prompt, tools, skills, budgets). Only the chat model changes.
 
+**Two packages.**
+- `src/origami_agent/` is the agent we ship: the system prompt, design tools and design skills. It has **no
+  oxDNA** and no benchmark code (`tests/test_shipped_agent.py` enforces this). It designs; it checks its
+  design only when the user asks.
+- `src/synbio_bench/` is the internal benchmark. It runs the shipped agent unchanged and adds only a
+  `submit_design` tool and a run budget. oxDNA is used **only by the grader**, after the run, to show
+  whether the submitted design actually holds together.
+
 ## Experiment design
 
 **Independent variable:** the model (`configs/models.yaml`, any LangChain `provider:model` string).
@@ -33,38 +41,60 @@ rectangle (32 × 224 bp) at full M13 scale. The original cadnano files (`referen
 `SOURCES.md`) import into scadnano and serve as reference designs.
 
 Shape tasks add a **shape score**: the IoU between an outline and the ideal shape of the same area, at the
-best rotation and position (`src/synbio_bench/origami/shapes.py`). Three outlines are measured:
-- the design footprint (0.34 nm per bp × 2.6 nm per helix), which the agent sees during validation;
+best rotation and position (`src/synbio_bench/origami/shapes.py`). A sheet may be one raster or several
+domains in rotated helix groups (e.g. Rothemund's sharp triangle: three trapezoids,
+`reference_designs/sharp_triangle.py`), as long as every helix lies in one plane. Enclosed holes count as
+filled, so the outline is judged. Three outlines are measured:
+- the design footprint (0.34 nm per bp × 2.6 nm per helix; multi-group designs are drawn from their real
+  helix axes), a spec check on the submitted design;
 - **the unrolled sheet (graded)**: the relaxed oxDNA mean structure flattened along its own surface.
-  Helix-axis points are linked along each helix and across crossover-connected neighbours. Surface
-  distances on that network are laid out in 2D (classical MDS). Rolling, bending and twisting in solution
-  don't count, but tearing does: a split seam disconnects the network and loses area;
+  Helix-axis points are linked along each helix, across crossover-connected neighbours, through crossovers
+  with short unpaired loops (bridging staples), and between points the design places side by side (seams),
+  as long as they stay within 5 nm. Classical MDS on surface distances gives a first layout, which is then
+  fitted to the straight 3D distances between points within 10 nm of each other along the surface. That
+  keeps holes and notches from distorting it; on flat test designs it matches the exact outline within 0.01.
+  Rolling, bending and twisting in solution don't count, but tearing does: a split seam disconnects the
+  network and loses area;
 - the projected outline plus flatness, which describe how the sheet sits in solution (reported, not graded).
 
 Wrong shapes score ~0.65–0.70, so treat IoU above ~0.9 as a good match. Shape tasks weight
 spec / base pairs formed / simulated shape equally.
 
-**Agent loop.** The agent reads skills, writes scadnano scripts, runs them, validates, simulates and iterates,
-then submits. Its tools:
+**Wireframe polyhedra** (`tasks/origami-wireframe/`): a hollow tetrahedron of six two-helix (DX) edges of
+~84 bp, each edge a helix group rotated in 3D, built DAEDALUS-style (Veneziano et al., 2016; reference:
+`reference_designs/wireframe_tetrahedron.py`). Its shape score (`src/synbio_bench/origami/wireframe.py`)
+compares the structure with the requested polyhedron, not with the agent's own design. The structure is
+rigidly fitted (ICP from 64 starting rotations) onto the ideal edges (35 nm, vertex to vertex). With a 3.5 nm
+tube around each edge, precision is the fraction of nucleotides inside a tube, and recall is the fraction of
+points along the middle of each edge (more than 6 nm from a vertex) with a nucleotide within 3.5 nm. The
+score is their F1. The design's own coordinates must reach F1 ≥ 0.9 (spec check); the oxDNA mean structure's
+F1 is graded. On calibration, the ideal design scores 1.0 and the simulated reference ~0.9, while a straight
+rod scores ~0.22 and a compact blob ~0.33. Size is held by the spec (80–88 bp per helix); the score itself
+tolerates about ±20% in scale.
+
+**Agent loop.** The agent reads skills, plans, writes scadnano scripts and runs them, then submits. It
+never simulates, and it does not check its design unless asked (the task prompts don't ask). Its tools:
 
 | tool | purpose |
 |---|---|
-| `read_file`, `write_file`, `edit_file`, `ls`, `glob`, `grep` | deep-agents filesystem, sandboxed to the run workspace (`/`) and read-only `/skills/` |
-| `run_python` | execute a design script in the workspace |
-| `validate_design_file` | legality, sequences, crossover adjacency, task spec checks, design summary |
-| `find_crossover_offsets` | geometrically valid crossover offsets between two helices of a draft design |
-| `simulate_design` | oxDNA "quick" protocol: base-pair occupancy, RMSF, RMSD, long-bond report (budgeted, default 4) |
-| `submit_design` | record the final answer |
-| `write_todos`, `task` | deep-agents planning and subagents |
+| tool | ships? | purpose |
+|---|---|---|
+| `read_file`, `write_file`, `edit_file`, `ls`, `glob`, `grep` | yes | deep-agents filesystem, sandboxed to the workspace (`/`) and read-only `/skills/` |
+| `run_python` | yes | execute a design script in the workspace |
+| `find_crossover_offsets` | yes | geometrically valid crossover offsets between two helices of a draft design |
+| `check_design` | yes | quick structural check (legality, sequences, scaffold, crossover adjacency, summary); used only when the user asks; no simulation |
+| `write_todos`, `task` | yes | deep-agents planning and subagents |
+| `submit_design` | benchmark only | record the final answer for grading |
 
-**Skills** (`skills/*/SKILL.md`) load progressively: the agent sees each skill's name and description
-and reads the full text on demand.
+**Skills** (`src/origami_agent/skills/*/SKILL.md`) load progressively: the agent sees each skill's name and
+description and reads the full text on demand.
 - `scadnano-python`: API patterns and a worked example
 - `origami-design-rules`: lattice geometry, crossover spacing, staple rules, failure modes
-- `oxdna-testing`: how to read simulation output
 
-**Grading** happens independently of the agent's own simulations. The grader re-runs a longer "standard"
-oxDNA protocol on the submitted design with fixed seeds:
+How to read the grader's oxDNA output is in `docs/oxdna-metrics.md` (for people, not the agent).
+
+**Grading** is the only place oxDNA runs. The grader runs a longer oxDNA protocol on the submitted design
+with fixed seeds:
 
 - `valid`: loads, legal, has a scaffold, every base sequenced, no mismatched designed pairs
 - `spec_score`: mean pass fraction over spec checks (lattice, helix count, bp per helix, scaffold length,
@@ -74,8 +104,20 @@ oxDNA protocol on the submitted design with fixed seeds:
   Raw metrics (RMSF, RMSD to design, extents, initial stretched bonds) are kept for other analyses.
 
 **Process metrics:** tokens (input/output/cache), optional cost, wall time, model calls, tool-call counts,
-simulations used, and termination reason (completed / recursion_limit / wall_timeout / error).
-Full transcripts are saved for qualitative analysis.
+and termination reason (completed / step_limit / wall_timeout / cost_cap / output_limit /
+recursion_limit / error). Full transcripts are saved for qualitative analysis.
+
+**Run budget** (`agent:` in the experiment config; identical for every model):
+- `max_model_calls` and `wall_timeout_s` are the budget. `cost_cap_usd` is a safety net set high enough
+  that it should never bind, so expensive models are not penalised for their price.
+- At 50%, 75% and 90% of the budget the next tool result carries a one-line notice (calls, time, cost,
+  whether a design has been submitted). The system prompt tells the model to expect it.
+- If the run ends without a submission (budget used up, or the model stops), it gets one **last chance**:
+  a message saying so and `last_chance_calls` more model calls with only `ls`, `check_design` and
+  `submit_design`. It can submit an existing design but not write or run code.
+- A last-chance submission is graded normally. Results record it separately (`last_chance`,
+  `submitted_in_budget`), so "solved within budget" and "submitted only when told" stay distinct.
+- A design file that is never submitted is not graded: submitting is the model's decision.
 
 **Controls**
 - `synbio-bench baseline` grades the expert reference design (`reference_designs/`) as a positive control.
@@ -118,6 +160,7 @@ uv run synbio-bench run --no-eval --parallel 4                  # agents only, t
 uv run synbio-bench evaluate                                    # grade later (GPU-bound, serialized)
 uv run synbio-bench report                                      # runs/<name>/results.csv + summary.md
 uv run synbio-bench --experiment configs/shapes.yaml run        # flat-shape scaling study
+uv run synbio-bench --experiment configs/wireframe-tetrahedron.yaml run   # wireframe tetrahedron
 uv run synbio-bench evaluate --reanalyze                        # recompute metrics without re-simulating
 ```
 
@@ -138,8 +181,8 @@ metrics, errors, rationale, links). `report --embed` writes `report_embedded.htm
 inlined so it can be shared as a single file. To inspect a structure interactively, drag the linked
 `initial.top` and `last_conf.dat` into [oxView](https://sulcgroup.github.io/oxdna-viewer/).
 
-Output per run: `runs/<experiment>/<task>/<model>/rep<k>/` contains `workspace/` (the agent's files, its
-simulations, `final/design.sc`), `transcript.json`, `agent.json` and `result.json`.
+Output per run: `runs/<experiment>/<task>/<model>/rep<k>/` contains `workspace/` (the agent's files and
+`final/design.sc`), `eval/` (the grader's oxDNA runs), `transcript.json`, `agent.json` and `result.json`.
 
 ## Tests
 
@@ -161,7 +204,10 @@ The smoke tests need neither API keys nor oxDNA. They use a scripted model and t
   short runs and **rolls into a tube** on the standard protocol (5M steps), while staying >99% base-paired.
   Its projected IoU falls from 0.88 to 0.54, which is why the graded score uses the unrolled sheet instead:
   that stays at 0.95–0.96 on every protocol. Twist correction (`rothemund.py rect-twistfix`, one deletion per
-  helix every 48 bp) cuts the twist to ~33° and shows up in the projected IoU and flatness.
+  helix every 48 bp) cuts the twist to ~33° but does not stop the rolling on the standard protocol
+  (projected IoU 0.61).
 - Grading cost: a full-M13 design (~14k nt) takes ~13 min on the quick protocol and ~95 min on the standard
   protocol on a GTX 1660. Small designs (<2k nt) take ~5 and ~35 min.
-- Adding a task family: add a `tasks/<family>/` spec, tools under `src/synbio_bench/<family>/`, and skills.
+- Adding a task family: design tools and skills go in a shippable package like `src/origami_agent/`;
+  task specs (`tasks/<family>/`), spec checks and the simulator-based grader go under
+  `src/synbio_bench/<family>/`.

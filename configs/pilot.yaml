@@ -4,9 +4,11 @@ tasks:
 models: [claude-haiku-5-5, deepseek-v4.1-flash]
 repeats: 1
 agent:
-  max_simulations: 4
-  recursion_limit: 400
+  max_model_calls: 120
   wall_timeout_s: 3600
+  cost_cap_usd: 5.0
+  last_chance_calls: 10
+  recursion_limit: 1000
   script_timeout_s: 180
 evaluation:
   protocol: standard
