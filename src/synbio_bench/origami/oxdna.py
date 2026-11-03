@@ -1,9 +1,10 @@
 """Export scadnano designs to oxDNA and run a fixed relax -> production protocol.
 
 oxDNA has no native Windows build, so the runner can call it through WSL
-(`mode: wsl`), directly (`mode: local`, Linux/macOS or a native build), or use a
-`mock` mode that fakes a stable trajectory so the harness can be exercised
-without a simulator. Mock results are always flagged in the returned metrics.
+(`mode: wsl`), directly (`mode: local`, Linux/macOS or a native build), on a
+Modal cloud GPU (`mode: modal`, see `modal_app.py`), or use a `mock` mode that
+fakes a stable trajectory so the harness can be exercised without a simulator.
+Mock results are always flagged in the returned metrics.
 """
 
 from __future__ import annotations
@@ -22,10 +23,12 @@ import numpy as np
 
 from origami_agent.design import load_design, nucleotide_map
 
-from . import analysis
+from . import analysis, modal_runner
 
-# One GPU, one simulation at a time, even when agents run in parallel threads.
-_SIM_LOCK = threading.Lock()
+# One GPU, one simulation at a time, even when agents run in parallel threads. Modal runs several at once
+# (each on its own GPU), up to `modal.max_parallel`.
+_SIM_SLOTS: dict[int, threading.BoundedSemaphore] = {}
+_SIM_SLOTS_LOCK = threading.Lock()
 
 # oxDNA2's FENE backbone diverges at r0 + delta = 0.7564 + 0.25 oxDNA units between backbone sites;
 # production MD exits if any bond starts beyond it. Relaxation (with capped backbone forces) gets more
@@ -36,7 +39,7 @@ EXTRA_RELAX_ROUNDS = 3
 
 @dataclass
 class OxDNAConfig:
-    mode: str = "wsl"  # wsl | local | mock
+    mode: str = "wsl"  # wsl | local | modal | mock
     executable: str = "oxDNA"
     wsl_distro: str | None = "Ubuntu"
     backend: str = "CUDA"  # CUDA | CPU; MC relaxation always runs on CPU
@@ -46,6 +49,7 @@ class OxDNAConfig:
     use_average_seq: bool = True
     seq_dep_file: str | None = None
     timeout_s: int = 3600
+    modal: dict[str, Any] = field(default_factory=dict)  # mode: modal settings; see modal_runner.DEFAULTS
     protocols: dict[str, dict[str, float]] = field(
         default_factory=lambda: {
             "quick": {"mc_steps": 1000, "relax_steps": 2e5, "prod_steps": 5e5, "print_every": 1e4},
@@ -59,6 +63,17 @@ class OxDNAConfig:
         d = dict(d)
         runner = d.pop("runner", {})
         return cls(**runner, **d)
+
+    @property
+    def max_parallel(self) -> int:
+        """How many simulations may run at once with this runner."""
+        return max(1, int(modal_runner.settings(self)["max_parallel"])) if self.mode == "modal" else 1
+
+
+def _sim_slot(cfg: OxDNAConfig) -> threading.BoundedSemaphore:
+    n = cfg.max_parallel
+    with _SIM_SLOTS_LOCK:
+        return _SIM_SLOTS.setdefault(n, threading.BoundedSemaphore(n))
 
 
 # ---------------------------------------------------------------------------
@@ -218,6 +233,8 @@ def _run_stage(cfg: OxDNAConfig, work: Path, input_name: str, opts: dict[str, An
         cmd += ["--cd", _to_wsl_path(work), "--exec", cfg.executable, input_name]
     elif cfg.mode == "local":
         cmd = [cfg.executable, input_name]
+    elif cfg.mode == "modal":
+        return modal_runner.run_stage(cfg, work, input_name, opts)
     else:
         raise ValueError(f"unknown oxDNA runner mode {cfg.mode!r}")
     return subprocess.run(cmd, cwd=work, capture_output=True, text=True, timeout=cfg.timeout_s)
@@ -314,7 +331,7 @@ def simulate(
             return False
         return True
 
-    with _SIM_LOCK:
+    with _sim_slot(cfg):
         for stage, opts in inputs.items():
             if not run(stage, opts):
                 return result
@@ -343,12 +360,14 @@ def simulate(
 
 
 def config_from_env(cfg: OxDNAConfig) -> OxDNAConfig:
-    """Let OXDNA_MODE / OXDNA_EXECUTABLE override the config file (handy for CI and quick tests)."""
+    """Let OXDNA_MODE / OXDNA_EXECUTABLE / OXDNA_BACKEND / OXDNA_MODAL_GPU override the config file."""
     if m := os.environ.get("OXDNA_MODE"):
         cfg.mode = m
     if exe := os.environ.get("OXDNA_EXECUTABLE"):
         cfg.executable = exe
     if b := os.environ.get("OXDNA_BACKEND"):
         cfg.backend = b
+    if g := os.environ.get("OXDNA_MODAL_GPU"):
+        cfg.modal = {**cfg.modal, "gpu": g}
     return cfg
 

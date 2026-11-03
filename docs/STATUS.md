@@ -120,9 +120,12 @@ its own: it spent all its calls hand-optimising staple routing and never built, 
 design. Runs now get budget notices at 50/75/90%, one last chance to submit when the budget ends, and a
 high cost cap as a safety net. The pilot predates this policy; rerun it before comparing models.
 
-1. **Where to run long experiments:** a rented cloud GPU is recommended. To do: a bootstrap script for a
-   fresh Ubuntu GPU machine, `OXDNA_MODE=local`, resumable `compare_protocols.py`, and docs on copying
-   `runs/` back.
+1. **Where to run long experiments:** draft Modal backend on branch `modal-oxdna-backend` (`mode: modal`,
+   `docs/modal.md`): stages run on Modal GPUs, outputs come back through a Volume, analysis stays local, and seeds
+   and runs can grade in parallel. It is tested only against a fake of the app. **Next:** sign up, deploy, run
+   `scripts/modal_smoke.py`, and work through the checklist in `docs/modal.md` (image build, agreement with
+   the local GTX 1660, oxDNA version pin, GPU choice by cost). For multi-hour standard-protocol runs, a rented
+   GPU box with `OXDNA_MODE=local` is still the alternative (bootstrap script not written).
 2. Reference designs for the 4HB, 8-helix sheet, 12HB and the other shape tasks (positive controls). The
    star likely needs the same domain treatment as the triangle; `sharp_triangle.py` is fixed at ~4000 nt.
 3. Repeats: the pilot had n=1 per model. Use ≥3 repeats for real comparisons.
@@ -133,7 +136,7 @@ high cost cap as a safety net. The pilot predates this policy; rerun it before c
 
 ```bash
 uv sync
-uv run pytest                                   # 39 tests, no API keys or oxDNA needed
+uv run pytest                                   # 48 tests, no API keys, oxDNA or Modal needed
 uv run synbio-bench --experiment configs/pilot.yaml report        # rebuild the pilot report
 uv run synbio-bench --experiment configs/pilot.yaml report --embed
 ```

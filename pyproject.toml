@@ -18,6 +18,9 @@ dependencies = [
     "scipy>=1.18.1",
 ]
 
+[project.optional-dependencies]
+modal = ["modal>=1.6"]  # mode: modal in configs/oxdna.yaml (oxDNA on Modal cloud GPUs)
+
 [project.scripts]
 synbio-bench = "synbio_bench.runner:main"
 

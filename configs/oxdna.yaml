@@ -1,12 +1,19 @@
 # How oxDNA is run. oxDNA has no native Windows build:
 #   mode: wsl   -> runs `executable` inside a WSL distro (see scripts/setup_oxdna_wsl.sh)
 #   mode: local -> runs `executable` directly (Linux/macOS, or a native build)
+#   mode: modal -> runs each stage on a Modal cloud GPU (see docs/modal.md; deploy src/synbio_bench/origami/modal_app.py first)
 #   mode: mock  -> fake stable trajectories, for testing the harness only (flagged in all results)
-# Env overrides: OXDNA_MODE, OXDNA_EXECUTABLE, OXDNA_BACKEND
+# Env overrides: OXDNA_MODE, OXDNA_EXECUTABLE, OXDNA_BACKEND, OXDNA_MODAL_GPU
 runner:
   mode: wsl
   executable: /usr/local/bin/oxDNA
   wsl_distro: Ubuntu
+  modal:                 # only used with mode: modal
+    app: synbio-oxdna      # deployed app name (modal_app.APP_NAME)
+    volume: synbio-oxdna-runs
+    gpu: null              # null = the GPU the app was deployed with (T4); or e.g. L4, A10G, L40S
+    max_parallel: 4        # simulations at once (one GPU each)
+    environment: null      # Modal environment; null = workspace default
 backend: CUDA            # CUDA (GPU) or CPU for MD stages; MC relaxation always uses CPU
 interaction_type: DNA2
 temperature: 25C

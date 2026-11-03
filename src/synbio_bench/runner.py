@@ -290,18 +290,27 @@ def cmd_evaluate(args: argparse.Namespace) -> None:
     """Grade agent runs that have agent.json but no result.json (e.g. after `run --no-eval`)."""
     exp = load_yaml(Path(args.experiment))
     oxdna = load_oxdna(Path(args.oxdna))
+    todo = []
     for agent_json in sorted((ROOT / "runs" / exp["name"]).glob("*/*/rep*/agent.json")):
         run_dir = agent_json.parent
         if (run_dir / "result.json").exists() and not (args.force or args.reanalyze):
             continue
         info = json.loads(agent_json.read_text())
-        if _infra_failure(info):
-            continue
+        if not _infra_failure(info):
+            todo.append((run_dir, info, load_task(info["task"])))
+
+    def grade_one(item: tuple[Path, dict, dict]) -> dict:
+        run_dir, info, task = item
         print(f"[eval] {run_dir.relative_to(ROOT)}")
-        task = load_task(info["task"])
-        info["grade"] = grade(run_dir, task, oxdna, exp.get("evaluation", {}), args.reanalyze)
-        (run_dir / "result.json").write_text(json.dumps(info, indent=1, default=str))
-        _figures(run_dir, task, info["model"])
+        return grade(run_dir, task, oxdna, exp.get("evaluation", {}), args.reanalyze)
+
+    # Grading runs in worker threads (simulations are capped by the runner: 1 locally, modal.max_parallel on
+    # Modal); results and figures are written here, one at a time, because matplotlib is not thread-safe.
+    with ThreadPoolExecutor(max_workers=max(1, args.parallel)) as pool:
+        for (run_dir, info, task), g in zip(todo, pool.map(grade_one, todo)):
+            info["grade"] = g
+            (run_dir / "result.json").write_text(json.dumps(info, indent=1, default=str))
+            _figures(run_dir, task, info["model"])
 
 
 def cmd_baseline(args: argparse.Namespace) -> None:
@@ -339,7 +348,8 @@ def main() -> None:
     r.add_argument("--model", action="append", help="model id (repeatable); default: experiment list")
     r.add_argument("--task", action="append", help="task id (repeatable); default: experiment list")
     r.add_argument("--repeats", type=int)
-    r.add_argument("--parallel", type=int, default=1, help="concurrent agent runs (oxDNA runs stay serialized)")
+    r.add_argument("--parallel", type=int, default=1,
+                   help="concurrent agent runs (oxDNA runs stay serialized except with mode: modal)")
     r.add_argument("--no-eval", action="store_true", help="skip grading; run `evaluate` later")
     r.set_defaults(func=cmd_run)
 
@@ -347,6 +357,8 @@ def main() -> None:
     e.add_argument("--force", action="store_true", help="re-grade runs that already have result.json")
     e.add_argument("--reanalyze", action="store_true",
                    help="recompute metrics from existing grading simulations instead of re-simulating")
+    e.add_argument("--parallel", type=int, default=1,
+                   help="runs graded at once; useful with mode: modal (simulations capped by modal.max_parallel)")
     e.set_defaults(func=cmd_evaluate)
 
     b = sub.add_parser("baseline", help="grade reference designs as a positive control")
