@@ -74,6 +74,30 @@ analysis, scoring and figures (all local, unchanged)
 `timeout_s` (top level) also applies on Modal and is enforced inside the container. A single stage can run for
 at most 6 h.
 
+## Pricing (modal.com/pricing, read 2026-11-03)
+
+Billed per second. Starter plan: $0 plus **$30/month free credit**, 100 containers, **10 GPUs at once**.
+
+| GPU | $/s | ≈ $/h |
+|---|---|---|
+| T4 | 0.000164 | 0.59 |
+| L4 | 0.000222 | 0.80 |
+| A10 | 0.000306 | 1.10 |
+| L40S | 0.000542 | 1.95 |
+| A100 40 GB / 80 GB | 0.000583 / 0.000694 | 2.10 / 2.50 |
+| RTX PRO 6000 | 0.000842 | 3.03 |
+| H100 | 0.001097 | 3.95 |
+| H200 | 0.001261 | 4.54 |
+| B200 / B300 | 0.001736 / 0.001972 | 6.25 / 7.10 |
+
+- **CPU and memory:** CPU is $0.0000131 per physical core per second (about $0.047/h; a physical core is 2 vCPU), and memory is $0.00000222 per GiB per second. GPU containers pay these too.
+- **Volumes:** $0.09/GiB-month, with 1 TiB/month included. Jobs are deleted after download, so storage is effectively free.
+- **Egress:** $0.04/GiB. Downloading a 100–200 MB trajectory costs about $0.004–0.008 per seed.
+
+oxDNA's own benchmarks show that time per step is nearly flat from 128 to 8,192 nucleotides, and an A100 is only about
+1.4× a V100 there. For these design sizes (1k–14k nt), the cheapest GPU (T4, or L4) is likely the best value
+per simulation. Running several seeds on one GPU is the bigger lever. Confirm both with measurements.
+
 ## Checklist for the first real run
 
 - [ ] The image builds. If the CMake step fails, check whether oxDNA v3.7.0 still builds with CUDA 12.8 and
