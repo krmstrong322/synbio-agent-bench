@@ -17,6 +17,7 @@ This module must not import anything from `synbio_bench`: Modal loads it on its 
 from __future__ import annotations
 
 import os
+import re
 import shutil
 import subprocess
 import tempfile
@@ -124,3 +125,119 @@ def run_stage_gpu(files: dict[str, bytes], input_name: str, job: str, timeout_s:
 @app.function(cpu=2.0, volumes={VOLUME_MOUNT: volume}, timeout=MAX_STAGE_SECONDS + 600, retries=1)
 def run_stage_cpu(files: dict[str, bytes], input_name: str, job: str, timeout_s: int) -> dict:
     return run_stage(files, input_name, job, timeout_s)
+
+
+# ---------------------------------------------------------------------------
+# Benchmark (scripts/modal_gpu_benchmark.py): time oxDNA runs, keep no outputs
+# ---------------------------------------------------------------------------
+
+BENCH_GPU_FUNCTION = "bench_gpu"
+BENCH_CPU_FUNCTION = "bench_cpu"
+_PER_STEP = re.compile(r"per step:\s*([0-9.eE+-]+)\s*ms")
+
+
+def _start_mps(root: Path) -> str | None:
+    """Start an NVIDIA MPS daemon so several oxDNA processes share the GPU. Returns an error, or None."""
+    env = {**os.environ, "CUDA_MPS_PIPE_DIRECTORY": str(root / "pipe"), "CUDA_MPS_LOG_DIRECTORY": str(root / "log")}
+    (root / "pipe").mkdir(parents=True, exist_ok=True)
+    (root / "log").mkdir(parents=True, exist_ok=True)
+    try:
+        proc = subprocess.run(["nvidia-cuda-mps-control", "-d"], env=env, capture_output=True, text=True, timeout=30)
+    except (OSError, subprocess.SubprocessError) as e:
+        return f"{type(e).__name__}: {e}"
+    if proc.returncode != 0:
+        return f"exit {proc.returncode}: {proc.stderr.strip() or proc.stdout.strip()}"
+    os.environ.update({k: env[k] for k in ("CUDA_MPS_PIPE_DIRECTORY", "CUDA_MPS_LOG_DIRECTORY")})
+    time.sleep(1)
+    return None
+
+
+def _stop_mps() -> None:
+    try:
+        subprocess.run(["nvidia-cuda-mps-control"], input="quit\n", text=True, capture_output=True, timeout=30)
+    except (OSError, subprocess.SubprocessError):
+        pass
+    for k in ("CUDA_MPS_PIPE_DIRECTORY", "CUDA_MPS_LOG_DIRECTORY"):
+        os.environ.pop(k, None)
+
+
+def _last_line(path: Path) -> str | None:
+    try:
+        lines = path.read_text().strip().splitlines()
+        return lines[-1] if lines else None
+    except OSError:
+        return None
+
+
+def bench(files: dict[str, bytes], variants: list[dict], timeout_s: int) -> dict:
+    """Run each variant's oxDNA inputs side by side (one process per input) and time them.
+
+    variant: {"name": str, "inputs": [input file text, ...], "mps": bool}. Nothing is written to the Volume.
+    """
+    t_container = time.time()
+    results = []
+    for v in variants:
+        root = Path(tempfile.mkdtemp(prefix="bench-"))
+        out = {"name": v["name"], "copies": len(v["inputs"]), "mps": bool(v.get("mps"))}
+        try:
+            if v.get("mps"):
+                err = _start_mps(root / "mps")
+                if err:
+                    out.update(skipped=f"MPS unavailable: {err}")
+                    results.append(out)
+                    continue
+            procs = []
+            t0 = time.time()
+            for k, text in enumerate(v["inputs"]):
+                work = root / f"copy{k}"
+                work.mkdir()
+                for name, data in files.items():
+                    (work / name).write_bytes(data)
+                (work / "input").write_text(text)
+                log = open(work / "oxdna.log", "w")  # a file, not a pipe: a full pipe would stall the copy
+                procs.append({"work": work, "log": log, "start": time.time(), "end": None, "timed_out": False,
+                              "p": subprocess.Popen([OXDNA, "input"], cwd=work, stdout=log, stderr=subprocess.STDOUT)})
+                time.sleep(0.25)  # oxDNA docs: staggered starts avoid GPU allocation failures
+            while any(r["end"] is None for r in procs):
+                for r in procs:
+                    if r["end"] is None and r["p"].poll() is not None:
+                        r["end"] = time.time()
+                if time.time() - t0 > timeout_s:
+                    for r in procs:
+                        if r["end"] is None:
+                            r["p"].kill()
+                            r["p"].wait()
+                            r["end"], r["timed_out"] = time.time(), True
+                time.sleep(0.2)
+            copies = []
+            for r in procs:
+                r["log"].close()
+                log = (r["work"] / "oxdna.log").read_text(errors="replace")
+                m = _PER_STEP.search(log)
+                rc = r["p"].returncode
+                copies.append({
+                    "returncode": rc,
+                    "timed_out": r["timed_out"],
+                    "wall_s": round(r["end"] - r["start"], 2),
+                    "per_step_ms": float(m.group(1)) if m else None,
+                    "last_energy": _last_line(r["work"] / "energy.dat"),
+                    "log_tail": None if rc == 0 else "\n".join(log.splitlines()[-15:]),
+                })
+            out.update(wall_s=round(time.time() - t0, 2), runs=copies)
+        finally:
+            if v.get("mps"):
+                _stop_mps()
+            shutil.rmtree(root, ignore_errors=True)
+        results.append(out)
+    return {"gpu": _gpu_name(), "oxdna_ref": OXDNA_REF, "container_s": round(time.time() - t_container, 2),
+            "variants": results}
+
+
+@app.function(gpu=DEFAULT_GPU, cpu=2.0, memory=4096, timeout=2 * 3600)
+def bench_gpu(files: dict[str, bytes], variants: list[dict], timeout_s: int) -> dict:
+    return bench(files, variants, timeout_s)
+
+
+@app.function(cpu=4.0, memory=4096, timeout=2 * 3600)
+def bench_cpu(files: dict[str, bytes], variants: list[dict], timeout_s: int) -> dict:
+    return bench(files, variants, timeout_s)

@@ -95,7 +95,7 @@ Billed per second. Starter plan: $0 plus **$30/month free credit**, 100 containe
 - **Egress:** $0.04/GiB. Downloading a 100–200 MB trajectory costs about $0.004–0.008 per seed.
 
 oxDNA's own benchmarks show that time per step is nearly flat from 128 to 8,192 nucleotides, and an A100 is only about
-1.4× a V100 there. For these design sizes (1k–14k nt), the cheapest GPU (T4, or L4) is likely the best value
+1.4× a V100 there. For these design sizes (2k–14k nucleotides), the cheapest GPU (T4, or L4) is likely the best value
 per simulation. Running several seeds on one GPU is the bigger lever. Confirm both with measurements.
 
 ## Checklist for the first real run
@@ -106,11 +106,35 @@ per simulation. Running several seeds on one GPU is the bigger lever. Confirm bo
       seed within seed noise.
 - [ ] Record the oxDNA version on the local WSL build. It tracks master, while Modal is pinned to v3.7.0. Rerun the
       reference designs on Modal before mixing local and Modal grades in one comparison.
-- [ ] Time the `shape` protocol on a 4000-nt and a 13,824-nt design on T4 and L4. Pick the default GPU by
-      cost per graded design, not speed.
+- [ ] Run `scripts/modal_gpu_benchmark.py` (below), then set the default GPU, `verlet_skin` and
+      simulations per GPU from its `summary.md`.
 - [ ] Check Modal's usage page after the smoke test, and compare it with the stage times in `log_*.txt`
       (`remote_seconds`).
 - [ ] Decide whether to record Modal cost per run in `result.json`, next to the API cost.
+
+## Benchmark: which GPU and settings are cheapest
+
+`scripts/modal_gpu_benchmark.py` times production MD on Modal for three reference designs: the wireframe
+tetrahedron (2,088 nt), the sharp triangle (7,900 nt) and the Rothemund rectangle (13,824 nt). It varies:
+
+- the **GPU type** (default T4, L4, A10G; `--gpu CPU` adds a CPU run for small designs),
+- **`verlet_skin`** (0.5 current, 0.2, 0.1; oxDNA's guide recommends 0.05–0.2),
+- **simulations sharing one GPU** (1 and 3; `--mps` also tries NVIDIA MPS, if the container allows it).
+
+```bash
+uv run python scripts/modal_gpu_benchmark.py --dry-run     # matrix + worst-case cost (~$1.50 at defaults)
+uv run python scripts/modal_gpu_benchmark.py --mps
+```
+
+How it works:
+- Each design is relaxed once on Modal; the result is cached in `runs/_bench/modal-gpu/relax/`.
+- Each (design, GPU) pair is one container that runs all of its variants, 30k MD steps each.
+- The results go to `results.json`, `results.csv` and `summary.md`. For each variant they give ms/step,
+  shape-protocol seeds per hour, and cost per grading seed (shape and standard protocols); for each design,
+  the cheapest setup.
+- Costs use oxDNA's own per-step timing, so container start-up is excluded.
+- `E_pot` is a rough check that the `verlet_skin` variants simulate the same system. Before changing
+  `verlet_skin` for grading, re-grade the reference designs.
 
 ## Open questions
 

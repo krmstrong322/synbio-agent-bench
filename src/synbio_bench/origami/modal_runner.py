@@ -22,6 +22,18 @@ VOLUME_NAME = "synbio-oxdna-runs"
 JOBS_DIR = "jobs"
 GPU_FUNCTION = "run_stage_gpu"
 CPU_FUNCTION = "run_stage_cpu"
+BENCH_GPU_FUNCTION = "bench_gpu"
+BENCH_CPU_FUNCTION = "bench_cpu"
+
+# modal.com/pricing, read 2026-11-03. USD per second (GPU), per physical core-second (CPU), per GiB-second.
+PRICES_AS_OF = "2026-11-03"
+GPU_PRICE_PER_S = {
+    "T4": 0.000164, "L4": 0.000222, "A10": 0.000306, "A10G": 0.000306, "L40S": 0.000542,
+    "A100-40GB": 0.000583, "A100": 0.000583, "A100-80GB": 0.000694, "RTX-PRO-6000": 0.000842,
+    "H100": 0.001097, "H200": 0.001261, "B200": 0.001736, "B300": 0.001972,
+}
+CPU_PRICE_PER_CORE_S = 0.0000131
+MEM_PRICE_PER_GIB_S = 0.00000222
 
 DEFAULTS: dict[str, Any] = {
     "app": APP_NAME,

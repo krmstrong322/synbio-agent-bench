@@ -208,8 +208,12 @@ def build_inputs(cfg: OxDNAConfig, protocol: str, seed: int = 1) -> dict[str, di
     return {"relax_mc": relax_mc, "relax_md": relax_md, "prod": prod}
 
 
+def format_input(opts: dict[str, Any]) -> str:
+    return "".join(f"{k} = {v}\n" for k, v in opts.items())
+
+
 def write_input(path: Path, opts: dict[str, Any]) -> None:
-    path.write_text("".join(f"{k} = {v}\n" for k, v in opts.items()))
+    path.write_text(format_input(opts))
 
 
 # ---------------------------------------------------------------------------

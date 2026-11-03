@@ -120,9 +120,11 @@ def test_names_match_deployed_app():
     consts = {t.id: n.value.value for n in tree.body if isinstance(n, ast.Assign)
               for t in n.targets if isinstance(t, ast.Name) and isinstance(n.value, ast.Constant)}
     funcs = {n.name for n in tree.body if isinstance(n, ast.FunctionDef)}
-    for name in ("APP_NAME", "VOLUME_NAME", "JOBS_DIR", "GPU_FUNCTION", "CPU_FUNCTION"):
+    for name in ("APP_NAME", "VOLUME_NAME", "JOBS_DIR", "GPU_FUNCTION", "CPU_FUNCTION",
+                 "BENCH_GPU_FUNCTION", "BENCH_CPU_FUNCTION"):
         assert consts[name] == getattr(modal_runner, name), name
-    assert {modal_runner.GPU_FUNCTION, modal_runner.CPU_FUNCTION} <= funcs
+    assert {modal_runner.GPU_FUNCTION, modal_runner.CPU_FUNCTION,
+            modal_runner.BENCH_GPU_FUNCTION, modal_runner.BENCH_CPU_FUNCTION} <= funcs
 
 
 def test_stage_inputs_are_minimal():
@@ -229,3 +231,103 @@ def test_env_override_sets_modal_gpu(monkeypatch):
     monkeypatch.setenv("OXDNA_MODAL_GPU", "L4")
     cfg = oxdna.config_from_env(OxDNAConfig(mode="modal", modal={"max_parallel": 2}))
     assert cfg.modal == {"max_parallel": 2, "gpu": "L4"}
+
+
+# ---------------------------------------------------------------------------
+# GPU benchmark (scripts/modal_gpu_benchmark.py and modal_app.bench)
+# ---------------------------------------------------------------------------
+
+
+def load_bench_script():
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location("modal_gpu_benchmark", ROOT / "scripts/modal_gpu_benchmark.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def test_bench_variants_and_costs():
+    b = load_bench_script()
+    cfg = OxDNAConfig(mode="modal")
+    vs = b.variants_for(cfg, "T4", 1000, [0.5, 0.2], [1, 3], mps=True)
+    assert [v["name"] for v in vs] == ["skin0.5-x1", "skin0.5-x3", "skin0.5-x3-mps",
+                                       "skin0.2-x1", "skin0.2-x3", "skin0.2-x3-mps"]
+    opts = parse_input(vs[1]["inputs"][2])
+    assert opts["verlet_skin"] == "0.5" and opts["seed"] == "3" and opts["conf_file"] == "relaxed.dat"
+    assert opts["backend"] == "CUDA" and opts["steps"] == "1000"
+    cpu = parse_input(b.variants_for(cfg, "CPU", 100, [0.2], [1], mps=True)[0]["inputs"][0])
+    assert cpu["backend"] == "CPU" and "max_density_multiplier" not in cpu
+
+    result = {"gpu": "Tesla T4", "container_s": 100.0, "variants": [
+        {"name": "skin0.5-x1", "copies": 1, "mps": False, "wall_s": 20.0,
+         "runs": [{"returncode": 0, "timed_out": False, "per_step_ms": 0.5, "last_energy": "1000 -1.40 0.1 -1.3"}]},
+        {"name": "skin0.5-x3", "copies": 3, "mps": False, "wall_s": 30.0,
+         "runs": [{"returncode": 0, "timed_out": False, "per_step_ms": 0.75, "last_energy": "1000 -1.42 0.1 -1.3"}] * 3},
+        {"name": "skin0.5-x3-mps", "copies": 3, "mps": True, "skipped": "MPS unavailable: missing"},
+    ]}
+    rows = b.rows_from("triangle", 4000, "T4", 1000, result, vs)
+    one, three, mps = rows
+    price = b.price_per_s("T4")
+    assert one["usd_per_seed_shape"] == pytest.approx(price * 0.5e-3 * 1.2e6, rel=1e-3)
+    assert three["usd_per_seed_shape"] == pytest.approx(price * 0.75e-3 * 1.2e6 / 3, rel=1e-3)  # sharing pays
+    assert one["e_pot_mean"] == -1.4 and three["skin"] == 0.5
+    assert mps["ok"] is False and "MPS" in mps["note"]
+    md = b.summary_md(rows, spent=0.12)
+    assert "Cheapest: **T4**, skin 0.5, 3 per GPU" in md and "$0.12" in md
+    with pytest.raises(ValueError):
+        b.price_per_s("V100")
+
+
+def test_container_side_bench(tmp_path, monkeypatch):
+    """modal_app.bench runs copies side by side, parses oxDNA's per-step time, and skips MPS it can't start."""
+    pytest.importorskip("modal")
+    from synbio_bench.origami import modal_app
+
+    fake = tmp_path / "oxDNA"
+    fake.write_text(f"#!{sys.executable}\n"
+                    "import pathlib, sys, time\n"
+                    "assert pathlib.Path('relaxed.dat').read_text() == 'conf'\n"
+                    "time.sleep(1.0)\n"
+                    "pathlib.Path('energy.dat').write_text('0 -1.3 0.1 -1.2\\n100 -1.4 0.1 -1.3\\n')\n"
+                    "print('INFO: Total Running Time: 0.3 s, per step: 0.0421 ms', file=sys.stderr)\n")
+    fake.chmod(fake.stat().st_mode | stat.S_IEXEC)
+    monkeypatch.setattr(modal_app, "OXDNA", str(fake))
+    monkeypatch.setattr(modal_app, "_start_mps", lambda root: "nvidia-cuda-mps-control not found")
+    out = modal_app.bench({"relaxed.dat": b"conf"}, [
+        {"name": "x2", "inputs": ["steps = 100\n"] * 2, "mps": False},
+        {"name": "x2-mps", "inputs": ["steps = 100\n"] * 2, "mps": True},
+    ], timeout_s=60)
+    x2, x2mps = out["variants"]
+    assert [r["per_step_ms"] for r in x2["runs"]] == [0.0421, 0.0421]
+    assert all(r["returncode"] == 0 and r["last_energy"].startswith("100 ") for r in x2["runs"])
+    assert x2["wall_s"] < 1.8  # the copies overlapped (one after the other would take > 2 s)
+    assert x2mps["skipped"].startswith("MPS unavailable")
+
+
+def test_bench_script_end_to_end(tmp_path, monkeypatch, fake_modal):
+    """main(): relax on (fake) Modal, ship the relaxed files, write results.json/csv and summary.md."""
+    b = load_bench_script()
+    seen = {}
+
+    def fake_call(gpu, files, variants, timeout_s, environment):
+        seen["files"] = sorted(files)
+        return {"gpu": "Tesla T4", "container_s": 12.0, "variants": [
+            {"name": v["name"], "copies": len(v["inputs"]), "mps": v["mps"], "wall_s": 5.0,
+             "runs": [{"returncode": 0, "timed_out": False, "per_step_ms": 0.2,
+                       "last_energy": "30000 -1.41 0.1 -1.3"}] * len(v["inputs"])} for v in variants]}
+
+    monkeypatch.setattr(b, "call_bench", fake_call)
+    out = tmp_path / "bench"
+    monkeypatch.setattr(sys, "argv", ["bench", "--design", "tetrahedron", "--gpu", "T4", "--skin", "0.2",
+                                      "--copies", "1", "--copies", "2", "--out", str(out)])
+    b.main()
+    assert seen["files"] == ["designed_pairs.op", "initial.top", "relaxed.dat"]
+    rows = json.loads((out / "results.json").read_text())["rows"]
+    assert [(r["copies"], r["ok"]) for r in rows] == [(1, True), (2, True)]
+    assert rows[0]["n_nt"] == 2088 == b.DESIGNS["tetrahedron"][2]
+    assert "Cheapest: **T4**, skin 0.2, 2 per GPU" in (out / "summary.md").read_text()
+    assert (out / "results.csv").read_text().startswith("design,")
+    calls = len(fake_modal.calls)
+    b.main()  # relaxation is cached
+    assert len(fake_modal.calls) == calls

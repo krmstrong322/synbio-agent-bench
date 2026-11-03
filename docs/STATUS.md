@@ -123,7 +123,7 @@ high cost cap as a safety net. The pilot predates this policy; rerun it before c
 1. **Where to run long experiments:** draft Modal backend on branch `modal-oxdna-backend` (`mode: modal`,
    `docs/modal.md`): stages run on Modal GPUs, outputs come back through a Volume, analysis stays local, and seeds
    and runs can grade in parallel. It is tested only against a fake of the app. **Next:** sign up, deploy, run
-   `scripts/modal_smoke.py`, and work through the checklist in `docs/modal.md` (image build, agreement with
+   `scripts/modal_smoke.py`, then `scripts/modal_gpu_benchmark.py` (GPU type, verlet_skin, sims per GPU), and work through the checklist in `docs/modal.md` (image build, agreement with
    the local GTX 1660, oxDNA version pin, GPU choice by cost). For multi-hour standard-protocol runs, a rented
    GPU box with `OXDNA_MODE=local` is still the alternative (bootstrap script not written).
 2. Reference designs for the 4HB, 8-helix sheet, 12HB and the other shape tasks (positive controls). The
@@ -136,7 +136,7 @@ high cost cap as a safety net. The pilot predates this policy; rerun it before c
 
 ```bash
 uv sync
-uv run pytest                                   # 48 tests, no API keys, oxDNA or Modal needed
+uv run pytest                                   # 51 tests, no API keys, oxDNA or Modal needed
 uv run synbio-bench --experiment configs/pilot.yaml report        # rebuild the pilot report
 uv run synbio-bench --experiment configs/pilot.yaml report --embed
 ```
