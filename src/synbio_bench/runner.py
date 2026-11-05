@@ -214,7 +214,7 @@ def grade(run_dir: Path, task: dict, oxdna: OxDNAConfig, eval_cfg: dict, reanaly
         oxdna,
         run_dir / "eval",
         protocol=eval_cfg.get("protocol", "standard"),
-        seeds=eval_cfg.get("seeds", [1]),
+        seeds=task.get("seeds") or eval_cfg.get("seeds", [1]),
         weights=task.get("weights") or eval_cfg.get("weights"),
         reanalyze=reanalyze,
     )
@@ -308,8 +308,10 @@ def _grade_all(exp: dict, oxdna: OxDNAConfig, items: list[tuple[Path, dict, dict
     if not items:
         return
     eval_cfg = exp.get("evaluation", {})
+    # A task can ask for its own seeds (e.g. the wireframe tetrahedron, whose score is noisy between seeds).
     subs = [Submission(run_dir / "workspace" / "final" / "design.sc", task["spec"], run_dir / "eval",
-                       task.get("weights") or eval_cfg.get("weights")) for run_dir, _, task in items]
+                       task.get("weights") or eval_cfg.get("weights"), task.get("seeds"))
+            for run_dir, _, task in items]
     if oxdna.sims_per_gpu > 1:
         print(f"[eval] grading {len(items)} run(s) together: up to {oxdna.sims_per_gpu} simulations per GPU, "
               f"{oxdna.max_parallel} GPUs at once")

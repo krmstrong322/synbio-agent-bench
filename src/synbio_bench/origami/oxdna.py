@@ -61,7 +61,7 @@ class OxDNAConfig:
     # Neighbour-list margin for the MD stages (oxDNA length units, ~0.85 nm). Speed only: every interacting pair
     # is always on the list, but trajectories diverge numerically like a new seed. oxDNA suggests 0.05-0.2; 0.1
     # was 10-17% faster than 0.5 in the Modal benchmark (docs/modal.md). MC relaxation uses MC_VERLET_SKIN.
-    verlet_skin: float = 0.5
+    verlet_skin: float = 0.1
     modal: dict[str, Any] = field(default_factory=dict)  # mode: modal settings; see modal_runner.DEFAULTS
     protocols: dict[str, dict[str, float]] = field(
         default_factory=lambda: {

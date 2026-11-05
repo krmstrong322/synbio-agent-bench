@@ -1,0 +1,27 @@
+# Open-weight frontier models and an OpenAI model, all through OpenRouter, on the origami-trio designs plus the
+# wireframe tetrahedron. Compare with the Claude results in runs/origami-trio and runs/wireframe-tetrahedron.
+#
+# Add models with scripts/openrouter_models.py (checks tool calling, fills prices), then list their ids below:
+#   uv run python scripts/openrouter_models.py --search <name>
+#   uv run python scripts/openrouter_models.py <org/model> <org/model> ... --add
+# Run agents first, then grade everything together on Modal (designs share GPUs):
+#   uv run synbio-bench --experiment configs/open-models.yaml run --no-eval --parallel 4
+#   $env:OXDNA_MODE="modal"; uv run synbio-bench --experiment configs/open-models.yaml evaluate
+name: open-models
+tasks:
+  - origami-shapes/rectangle-4000
+  - origami-shapes/triangle-4000
+  - origami/6hb-honeycomb-3k
+  - origami-wireframe/tetrahedron   # graded on 3 seeds (set in the task file); the others on 1
+models: []   # fill in from the script's "models: [...]" line
+repeats: 1
+agent:       # same budget as origami-trio and wireframe-tetrahedron
+  max_model_calls: 120
+  wall_timeout_s: 5400
+  cost_cap_usd: 15.0
+  last_chance_calls: 10
+  recursion_limit: 1000
+  script_timeout_s: 300
+evaluation:
+  protocol: shape            # oxDNA grading; run separately with `evaluate`
+  seeds: [1]

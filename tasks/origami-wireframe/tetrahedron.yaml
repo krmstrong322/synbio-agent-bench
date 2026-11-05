@@ -2,6 +2,7 @@ id: origami-wireframe/tetrahedron
 title: Wireframe tetrahedron with two-helix edges
 difficulty: 4
 reference: reference_designs/wireframe_tetrahedron.py
+seeds: [1, 2, 3]  # graded on 3 oxDNA seeds in every experiment: wireframe F1 varies ~0.2 between seeds
 prompt: |
   Design a wireframe DNA origami tetrahedron: a hollow, regular tetrahedron whose six edges are each a bundle of
   two parallel helices (a double-crossover, "DX", edge), joined at its four vertices. The edges should be about

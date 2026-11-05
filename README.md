@@ -170,6 +170,7 @@ OXDNA_MODE=modal uv run synbio-bench evaluate                  # grade on Modal:
 uv run synbio-bench report                                      # runs/<name>/results.csv + summary.md
 uv run synbio-bench --experiment configs/shapes.yaml run        # flat-shape scaling study
 uv run synbio-bench --experiment configs/wireframe-tetrahedron.yaml run   # wireframe tetrahedron
+uv run python scripts/openrouter_models.py <org/model> --add    # add an OpenRouter model (checks tool calling, prices)
 uv run synbio-bench evaluate --reanalyze                        # recompute metrics without re-simulating
 ```
 

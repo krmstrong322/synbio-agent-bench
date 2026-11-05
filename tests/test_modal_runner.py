@@ -492,8 +492,7 @@ def test_runner_grades_runs_together_and_saves_each(tmp_path, monkeypatch, fake_
 
 def test_verlet_skin_setting(tmp_path, monkeypatch):
     cfg = OxDNAConfig.from_dict(yaml.safe_load((ROOT / "configs/oxdna.yaml").read_text()))
-    assert cfg.verlet_skin == 0.5  # unchanged default until re-grading confirms 0.1
-    cfg.verlet_skin = 0.1
+    assert cfg.verlet_skin == 0.1 == OxDNAConfig().verlet_skin  # default since re-grading origami-trio at 0.1
     stages = build_inputs(cfg, "shape")
     assert stages["relax_md"]["verlet_skin"] == stages["prod"]["verlet_skin"] == 0.1
     # oxDNA's MC exits unless verlet_skin > delta_translation * sqrt(3); MC keeps its own skin.

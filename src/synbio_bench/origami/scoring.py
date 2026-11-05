@@ -37,6 +37,7 @@ class Submission:
     spec: dict[str, Any]
     out_dir: Path
     weights: dict[str, float] | None = None
+    seeds: list[int] | None = None  # overrides evaluate_many's seeds (e.g. a noisy task graded on more seeds)
 
 
 def evaluate_submission(
@@ -73,12 +74,12 @@ def evaluate_many(
     owner: list[int] = []
     for i, (sub, prep) in enumerate(zip(subs, preps)):
         if prep["valid"]:
-            for seed in seeds:
+            for seed in sub.seeds or seeds:
                 jobs.append(SimJob(sub.design_path, sub.out_dir / f"seed_{seed}", seed,
                                    sub.spec.get("shape"), sub.spec.get("wireframe")))
                 owner.append(i)
         else:
-            grades[i] = _score(sub, prep, [], oxdna, protocol, seeds)
+            grades[i] = _score(sub, prep, [], oxdna, protocol, sub.seeds or seeds)
             if on_done:
                 on_done(i, grades[i])
 
@@ -94,7 +95,7 @@ def evaluate_many(
             complete = remaining[i] == 0
         if complete:
             sims = [r for _, r in sorted(got[i], key=lambda t: t[0])]  # seed order
-            grades[i] = _score(subs[i], preps[i], sims, oxdna, protocol, seeds)
+            grades[i] = _score(subs[i], preps[i], sims, oxdna, protocol, subs[i].seeds or seeds)
             if on_done:
                 on_done(i, grades[i])
 
