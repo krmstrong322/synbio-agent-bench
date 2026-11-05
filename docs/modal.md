@@ -136,6 +136,39 @@ How it works:
 - `E_pot` is a rough check that the `verlet_skin` variants simulate the same system. Before changing
   `verlet_skin` for grading, re-grade the reference designs.
 
+## Benchmark results (2026-11-05, 30k MD steps per run, prices 2026-11-03)
+
+oxDNA ms/step per simulation, from oxDNA's own timing. With 3 sims on one GPU this is each sim's speed
+while sharing.
+
+| design | T4 x1 | L4 x1 | A10G x1 | A100 x1 | L4 x3 (no MPS) | **L4 x3 + MPS** | A10G x3 + MPS |
+|---|---|---|---|---|---|---|---|
+| tetrahedron, 2,088 nt (skin 0.1) | 0.23 | 0.19 | 0.19 | 0.27 | 0.79 | **0.27** | 0.22 |
+| triangle, 7,900 nt (skin 0.1) | 0.35 | 0.23 | 0.24 | 0.31 | 0.87 | **0.36** | 0.35 |
+| Rothemund, 13,824 nt (skin 0.1) | 0.40 | 0.25 | 0.24 | 0.31 | 0.85 | **0.41** | 0.39 |
+
+Cost of one `shape`-protocol grading seed (1.2M MD steps, MD only):
+
+| design | current setup (L4 x1, skin 0.5) | L4 x3 + MPS, skin 0.1 |
+|---|---|---|
+| tetrahedron | $0.065 | **$0.028** |
+| triangle | $0.081 | **$0.037** |
+| Rothemund | $0.087 | **$0.042** |
+
+Findings:
+- **MPS works on Modal, and it is the main lever.** 3 sims sharing an L4 with MPS each run at about 0.6x
+  single speed, which is 1.8x the throughput for the same GPU price.
+- **Never share a GPU without MPS.** Plain time-slicing made each of 3 sims 3.5–4x slower, worse than
+  running them one after another.
+- **Bigger GPUs don't help at these sizes.** An A100 is no faster than an L4 (0.31 vs 0.25 ms/step on the
+  Rothemund) at 2.6x the price; oxDNA is latency-bound below ~15k nt. The T4 is the slowest.
+- **L4 is the cheapest at every size; A10G is close behind** and slightly faster with MPS.
+- **verlet_skin 0.1 is 10–17% faster than 0.5.** Final potential energies agree within noise
+  (±0.003 per nucleotide). Re-grade the references before adopting it.
+- **L4 availability:** all L4 containers waited about 10–13 minutes for a GPU (839–974 s end to end against
+  about 3 min of work); T4, A10G and A100 started at once. A10G is the natural fallback.
+- Spend: $0.91 for this run (container time x price), plus relaxations.
+
 ## Open questions
 
 - Is the per-stage design fast enough? Each stage pays for a container start and file transfer, which is
