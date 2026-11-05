@@ -323,8 +323,29 @@ def _grade_all(exp: dict, oxdna: OxDNAConfig, items: list[tuple[Path, dict, dict
             _figures(run_dir, task, info["model"])
             print(f"[{label}] {_rel(run_dir)}: overall={g.get('overall')} valid={g.get('valid')}", flush=True)
 
-    evaluate_many(subs, oxdna, protocol=eval_cfg.get("protocol", "standard"), seeds=eval_cfg.get("seeds", [1]),
-                  reanalyze=reanalyze, on_done=on_done)
+    grades = evaluate_many(subs, oxdna, protocol=eval_cfg.get("protocol", "standard"),
+                           seeds=eval_cfg.get("seeds", [1]), reanalyze=reanalyze, on_done=on_done)
+    _warn_sim_failures(grades)
+
+
+def _warn_sim_failures(grades: list[dict]) -> None:
+    """Say loudly when simulations failed: a broken setting otherwise just looks like low scores."""
+    counts: dict[str, int] = {}
+    n_sims = 0
+    for g in grades:
+        n_sims += len(g.get("sim_ok") or [])
+        for f in g.get("sim_failures") or []:
+            last = (f.get("log_tail") or "").strip().splitlines()[-1:] or [""]
+            key = f"{f.get('failed_stage')}: {f.get('error')}" + (f" | {last[0][:160]}" if last[0] else "")
+            counts[key] = counts.get(key, 0) + 1
+    if not counts:
+        return
+    failed = sum(counts.values())
+    print(f"[warn] {failed} of {n_sims} simulation(s) failed; those runs score 0 for simulation:", flush=True)
+    for key, n in sorted(counts.items(), key=lambda kv: -kv[1]):
+        print(f"[warn]   {n} x {key}", flush=True)
+    if failed == n_sims and n_sims > 1:
+        print("[warn] every simulation failed: likely a setting or setup problem, not the designs.", flush=True)
 
 
 def cmd_evaluate(args: argparse.Namespace) -> None:

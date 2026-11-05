@@ -494,7 +494,11 @@ def test_verlet_skin_setting(tmp_path, monkeypatch):
     cfg = OxDNAConfig.from_dict(yaml.safe_load((ROOT / "configs/oxdna.yaml").read_text()))
     assert cfg.verlet_skin == 0.5  # unchanged default until re-grading confirms 0.1
     cfg.verlet_skin = 0.1
-    assert all(opts["verlet_skin"] == 0.1 for opts in build_inputs(cfg, "shape").values())
+    stages = build_inputs(cfg, "shape")
+    assert stages["relax_md"]["verlet_skin"] == stages["prod"]["verlet_skin"] == 0.1
+    # oxDNA's MC exits unless verlet_skin > delta_translation * sqrt(3); MC keeps its own skin.
+    mc = stages["relax_mc"]
+    assert mc["verlet_skin"] == oxdna.MC_VERLET_SKIN > mc["delta_translation"] * 3 ** 0.5
     monkeypatch.setenv("OXDNA_VERLET_SKIN", "0.2")
     assert oxdna.config_from_env(OxDNAConfig()).verlet_skin == 0.2
     g = evaluate_submission(build_reference(tmp_path), HB6_SPEC, OxDNAConfig(mode="mock", verlet_skin=0.1),
@@ -502,3 +506,16 @@ def test_verlet_skin_setting(tmp_path, monkeypatch):
     assert g["verlet_skin"] == 0.1
     assert "verlet_skin = 0.1" in (tmp_path / "eval/seed_1/input_prod").read_text()
     assert json.loads((tmp_path / "eval/seed_1/result.json").read_text())["verlet_skin"] == 0.1
+
+
+def test_runner_warns_when_simulations_fail(capsys):
+    from synbio_bench import runner
+
+    fail = {"failed_stage": "relax_mc", "error": "oxDNA exited with code 1",
+            "log_tail": "INFO: ...\nERROR: verlet_skin must be > delta_translation times sqrt(3)"}
+    runner._warn_sim_failures([{"sim_ok": [False], "sim_failures": [fail]}, {"sim_ok": [False], "sim_failures": [fail]}])
+    out = capsys.readouterr().out
+    assert "2 of 2 simulation(s) failed" in out and "2 x relax_mc" in out and "verlet_skin must be" in out
+    assert "every simulation failed" in out
+    runner._warn_sim_failures([{"sim_ok": [True], "sim_failures": []}])
+    assert capsys.readouterr().out == ""

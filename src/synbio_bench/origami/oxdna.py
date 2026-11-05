@@ -37,6 +37,12 @@ _SIM_SLOTS_LOCK = threading.Lock()
 # production MD exits if any bond starts beyond it. Relaxation (with capped backbone forces) gets more
 # rounds while a bond is still past this margin.
 MAX_BACKBONE_BOND_OX = 0.98
+
+# MC relaxation keeps its own neighbour-list skin: oxDNA's MC requires verlet_skin > delta_translation * sqrt(3)
+# (0.1 * 1.732 = 0.17 here) and exits otherwise. `verlet_skin` in the config applies to the MD stages, where the
+# time goes. 0.5 is what every stage used before the setting existed.
+MC_DELTA_TRANSLATION = 0.1
+MC_VERLET_SKIN = 0.5
 EXTRA_RELAX_ROUNDS = 3
 
 
@@ -52,9 +58,9 @@ class OxDNAConfig:
     use_average_seq: bool = True
     seq_dep_file: str | None = None
     timeout_s: int = 3600
-    # Neighbour-list margin (oxDNA length units, ~0.85 nm). Speed only: every interacting pair is always on the
-    # list, but trajectories diverge numerically like a new seed. oxDNA suggests 0.05-0.2; 0.1 was 10-17% faster
-    # than 0.5 in the Modal benchmark (docs/modal.md).
+    # Neighbour-list margin for the MD stages (oxDNA length units, ~0.85 nm). Speed only: every interacting pair
+    # is always on the list, but trajectories diverge numerically like a new seed. oxDNA suggests 0.05-0.2; 0.1
+    # was 10-17% faster than 0.5 in the Modal benchmark (docs/modal.md). MC relaxation uses MC_VERLET_SKIN.
     verlet_skin: float = 0.5
     modal: dict[str, Any] = field(default_factory=dict)  # mode: modal settings; see modal_runner.DEFAULTS
     protocols: dict[str, dict[str, float]] = field(
@@ -164,7 +170,8 @@ def build_inputs(cfg: OxDNAConfig, protocol: str, seed: int = 1) -> dict[str, di
         "backend": "CPU",
         "sim_type": "MC",
         "ensemble": "NVT",
-        "delta_translation": 0.1,
+        "verlet_skin": MC_VERLET_SKIN,
+        "delta_translation": MC_DELTA_TRANSLATION,
         "delta_rotation": 0.1,
         "steps": mc_steps,
         "max_backbone_force": 5,

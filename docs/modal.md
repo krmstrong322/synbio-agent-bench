@@ -178,6 +178,8 @@ Findings:
 - **verlet_skin 0.1 is 10–17% faster than 0.5.** Final potential energies agree within noise
   (±0.003 per nucleotide). Re-grade the references before adopting it. Set it with `verlet_skin` in
   `configs/oxdna.yaml` or `OXDNA_VERLET_SKIN`; every grade and simulation result records the value used.
+  It applies to the MD stages only: oxDNA's MC needs a skin above 0.17 with our move size, so MC relaxation
+  keeps 0.5 (a first re-grade at 0.1 failed every simulation at MC for this reason).
 - **L4 availability:** all L4 containers waited about 10–13 minutes for a GPU (839–974 s end to end against
   about 3 min of work); T4, A10G and A100 started at once. A10G is the natural fallback.
 - Spend: $0.91 for this run (container time x price), plus relaxations.
