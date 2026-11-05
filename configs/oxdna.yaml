@@ -11,8 +11,9 @@ runner:
   modal:                 # only used with mode: modal
     app: synbio-oxdna      # deployed app name (modal_app.APP_NAME)
     volume: synbio-oxdna-runs
-    gpu: null              # null = the GPU the app was deployed with (T4); or e.g. L4, A10G, L40S
-    max_parallel: 4        # simulations at once (one GPU each)
+    gpu: null              # null = as deployed: L4, else A10G when no L4 is free; or force one type, e.g. A10G
+    sims_per_gpu: 3        # seeds of a design sharing one GPU under MPS (benchmark: ~2x cheaper); 1 = one GPU each
+    max_parallel: 4        # groups (containers) at once; Starter allows 10 GPUs
     environment: null      # Modal environment; null = workspace default
 backend: CUDA            # CUDA (GPU) or CPU for MD stages; MC relaxation always uses CPU
 interaction_type: DNA2

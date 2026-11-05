@@ -129,8 +129,10 @@ high cost cap as a safety net. The pilot predates this policy; rerun it before c
    **2026-11-05:** deployed and smoke-tested on Modal (6HB reference: bp 0.988). GPU benchmark in `docs/modal.md`:
    best value is an L4 with 3 sims sharing it under MPS and verlet_skin 0.1 (~$0.04 per shape-protocol seed for the
    13.8k-nt Rothemund, half the cost of 1 sim per GPU); A100s don't pay off; sharing without MPS is worse than serial.
-   Next: pack seeds onto one GPU with MPS in the grader, default GPU L4 with A10G fallback, verlet_skin 0.1 after
-   re-grading the references.
+   Done: the grader runs a design's seeds 3 to a GPU under MPS (`modal.sims_per_gpu`), default GPU L4 with A10G
+   fallback (needs a redeploy; check with `scripts/modal_smoke.py --seeds 3`). Next: verlet_skin 0.1 after
+   re-grading the references. Modal billed $2.54 to date, about 30% over container-time estimates (image builds,
+   warm containers).
 2. Reference designs for the 4HB, 8-helix sheet, 12HB and the other shape tasks (positive controls). The
    star likely needs the same domain treatment as the triangle; `sharp_triangle.py` is fixed at ~4000 nt.
 3. Repeats: the pilot had n=1 per model. Use ≥3 repeats for real comparisons.
@@ -141,7 +143,7 @@ high cost cap as a safety net. The pilot predates this policy; rerun it before c
 
 ```bash
 uv sync
-uv run pytest                                   # 51 tests, no API keys, oxDNA or Modal needed
+uv run pytest                                   # 55 tests, no API keys, oxDNA or Modal needed
 uv run synbio-bench --experiment configs/pilot.yaml report        # rebuild the pilot report
 uv run synbio-bench --experiment configs/pilot.yaml report --embed
 ```

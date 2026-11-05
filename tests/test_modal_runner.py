@@ -1,6 +1,6 @@
 """mode: modal without a Modal account: the client is driven against an in-process fake of the deployed app.
 
-The fake mirrors modal_app.run_stage (inputs in, changed files to a volume, metadata back) and runs the mock
+The fake mirrors modal_app.run_stages (inputs in, changed files to a volume, metadata back) and runs the mock
 simulator, so these tests cover file shipping, CPU/GPU routing, timeouts, cleanup and parallel seeds.
 The container-side code itself is tested against a stand-in oxDNA when the modal extra is installed.
 """
@@ -59,25 +59,30 @@ class FakeApp:
 
     def __init__(self, volume: FakeVolume, delay: float = 0.0, timed_out: bool = False):
         self.volume, self.delay, self.timed_out = volume, delay, timed_out
-        self.calls: list[dict] = []
+        self.calls: list[dict] = []  # one per simulation-stage
+        self.batches: list[tuple[str, bool, int]] = []  # one per container call: (input, gpu, n jobs)
         self.running = self.peak = 0
         self.lock = threading.Lock()
 
     def function(self, settings, gpu):
-        def remote(files, input_name, job, timeout_s):
+        def remote(jobs, timeout_s):
             with self.lock:
-                self.calls.append({"gpu": gpu, "input": input_name, "files": sorted(files)})
+                self.batches.append((jobs[0]["input_name"], gpu, len(jobs)))
+                for j in jobs:
+                    self.calls.append({"gpu": gpu, "input": j["input_name"], "files": sorted(j["files"])})
                 self.running += 1
                 self.peak = max(self.peak, self.running)
             try:
                 time.sleep(self.delay)
-                return self._run(files, input_name, job, gpu)
+                results = [self._run(j["files"], j["input_name"], j["job"]) for j in jobs]
+                return {"results": results, "gpu": "FakeGPU" if gpu else None,
+                        "mps": "on" if gpu and len(jobs) > 1 else None, "oxdna_ref": "fake"}
             finally:
                 with self.lock:
                     self.running -= 1
         return remote
 
-    def _run(self, files, input_name, job, gpu):
+    def _run(self, files, input_name, job):
         with tempfile.TemporaryDirectory() as d:
             work = Path(d)
             for name, data in files.items():
@@ -98,8 +103,7 @@ class FakeApp:
                     self.volume.files[f"jobs/{job}/{p.name}"] = p.read_bytes()
                 produced[p.name] = p.stat().st_size
             return {"returncode": proc.returncode, "stdout": proc.stdout, "stderr": proc.stderr,
-                    "timed_out": False, "files": produced, "seconds": 0.0, "gpu": "FakeGPU" if gpu else None,
-                    "oxdna_ref": "fake"}
+                    "timed_out": False, "files": produced, "seconds": 0.0}
 
 
 @pytest.fixture
@@ -189,27 +193,67 @@ def test_missing_modal_is_not_a_simulation_failure(tmp_path, monkeypatch):
         simulate(build_reference(tmp_path), tmp_path / "sim", modal_cfg(), protocol="quick")
 
 
-def test_seeds_run_in_parallel_on_modal(tmp_path, monkeypatch):
+def test_seeds_share_a_gpu_on_modal(tmp_path, monkeypatch):
+    """4 seeds, 3 per GPU: a group of 3 and a group of 1, each stage one container call, groups side by side."""
     vol = FakeVolume()
     app = FakeApp(vol, delay=0.2)
     monkeypatch.setattr(modal_runner, "_function", app.function)
     monkeypatch.setattr(modal_runner, "_volume", lambda s: vol)
-    g = evaluate_submission(build_reference(tmp_path), HB6_SPEC, modal_cfg(max_parallel=3), tmp_path / "eval",
-                            protocol="quick", seeds=[1, 2, 3])
-    assert g["valid"] and g["sim_ok"] == [True, True, True]
+    g = evaluate_submission(build_reference(tmp_path), HB6_SPEC, modal_cfg(max_parallel=2), tmp_path / "eval",
+                            protocol="quick", seeds=[1, 2, 3, 4])
+    assert g["valid"] and g["sim_ok"] == [True] * 4
     assert g["sim_runner"] == "modal"
-    assert app.peak > 1
+    prod = sorted(n for inp, gpu, n in app.batches if inp == "input_prod")
+    assert prod == [1, 3]
+    assert ("input_relax_mc", False, 3) in app.batches  # MC relaxation of a group shares one CPU container
+    assert app.peak > 1  # the two groups ran at the same time
+    log = (tmp_path / "eval/seed_2/log_prod.txt").read_text()
+    assert "shared_with=2 mps=on" in log
+    assert json.loads((tmp_path / "eval/seed_1/result.json").read_text())["shared_gpu_with"] == 2
+    assert "shared_gpu_with" not in json.loads((tmp_path / "eval/seed_4/result.json").read_text())
 
 
-def test_container_side_run_stage(tmp_path, monkeypatch):
-    """modal_app.run_stage against a stand-in oxDNA: returns logs and only new or changed files."""
+def test_one_failed_seed_does_not_stop_the_group(tmp_path, monkeypatch):
+    vol = FakeVolume()
+    app = FakeApp(vol)
+    real = app._run
+
+    def flaky(files, input_name, job):
+        out = real(files, input_name, job)
+        if input_name == "input_prod" and b"seed = 2" in files[input_name]:
+            return {**out, "returncode": 1, "stdout": "boom", "files": {}}
+        return out
+
+    app._run = flaky
+    monkeypatch.setattr(modal_runner, "_function", app.function)
+    monkeypatch.setattr(modal_runner, "_volume", lambda s: vol)
+    design = build_reference(tmp_path)
+    rs = oxdna.simulate_many([oxdna.SimJob(design, tmp_path / f"s{k}", k) for k in (1, 2, 3)], modal_cfg(),
+                             protocol="quick")
+    assert [r.get("ok") for r in rs] == [True, False, True]
+    assert rs[1]["failed_stage"] == "prod" and "boom" in rs[1]["log_tail"]
+
+
+def test_local_runs_stay_one_at_a_time(tmp_path):
+    cfg = OxDNAConfig(mode="mock")
+    assert cfg.sims_per_gpu == 1 and cfg.max_parallel == 1
+    assert modal_cfg().sims_per_gpu == 3 and modal_cfg(sims_per_gpu=1).sims_per_gpu == 1
+    design = build_reference(tmp_path)
+    rs = oxdna.simulate_many([oxdna.SimJob(design, tmp_path / f"s{k}", k) for k in (1, 2)], cfg, protocol="quick")
+    assert all(r["ok"] for r in rs) and [r["seed"] for r in rs] == [1, 2]
+    assert all("shared_gpu_with" not in r for r in rs)
+
+
+def test_container_side_run_stages(tmp_path, monkeypatch):
+    """modal_app.run_stages against a stand-in oxDNA: per-job logs and changed files; MPS failure -> one at a time."""
     pytest.importorskip("modal")
     from synbio_bench.origami import modal_app
 
     fake = tmp_path / "oxDNA"
     fake.write_text(f"#!{sys.executable}\n"
-                    "import sys, pathlib\n"
-                    "print('running', sys.argv[1])\n"
+                    "import sys, pathlib, time\n"
+                    "print('running', sys.argv[1], pathlib.Path('tag').read_text())\n"
+                    "time.sleep(1.5)\n"
                     "pathlib.Path('relaxed.dat').write_text('moved')\n"
                     "pathlib.Path('last_conf.dat').write_text('new')\n")
     fake.chmod(fake.stat().st_mode | stat.S_IEXEC)
@@ -223,14 +267,34 @@ def test_container_side_run_stage(tmp_path, monkeypatch):
     monkeypatch.setattr(modal_app, "OXDNA", str(fake))
     monkeypatch.setattr(modal_app, "VOLUME_MOUNT", str(tmp_path / "vol"))
     monkeypatch.setattr(modal_app, "volume", Vol())
-    files = {"input_x": b"steps = 1\n", "initial.top": b"top", "relaxed.dat": b"old"}
-    out = modal_app.run_stage(files, "input_x", "job1", timeout_s=60)
-    assert out["returncode"] == 0 and "running input_x" in out["stdout"]
-    assert set(out["files"]) == {"relaxed.dat", "last_conf.dat"}
+    monkeypatch.setattr(modal_app, "_gpu_name", lambda: "FakeGPU")
+    monkeypatch.setattr(modal_app, "_start_mps", lambda root: "nvidia-cuda-mps-control not found")
+
+    def jobs(n):
+        return [{"files": {"input_x": b"steps = 1\n", "initial.top": b"top", "relaxed.dat": b"old",
+                           "tag": f"seed{k}".encode()}, "input_name": "input_x", "job": f"job{k}"} for k in range(n)]
+
+    t0 = time.time()
+    out = modal_app.run_stages(jobs(2), timeout_s=60, gpu=False)  # CPU: side by side
+    assert time.time() - t0 < 2.7  # one after another would take > 3 s
+    assert out["mps"] is None and out["gpu"] is None
+    r0, r1 = out["results"]
+    assert r0["returncode"] == 0 and "running input_x seed0" in r0["stdout"] and "seed1" in r1["stdout"]
+    assert set(r0["files"]) == {"relaxed.dat", "last_conf.dat"}  # unchanged inputs and the log stay behind
     assert (tmp_path / "vol/jobs/job1/relaxed.dat").read_text() == "moved"
-    assert Vol.commits == 1
+
+    t0 = time.time()
+    out = modal_app.run_stages(jobs(2), timeout_s=60, gpu=True)  # GPU, MPS unavailable: one at a time
+    assert time.time() - t0 >= 3.0
+    assert out["mps"].startswith("off (nvidia-cuda-mps-control not found)") and out["gpu"] == "FakeGPU"
+    assert Vol.commits == 2
     with pytest.raises(ValueError):
-        modal_app.run_stage({"../x": b""}, "../x", "job2", timeout_s=60)
+        modal_app.run_stages([{"files": {"../x": b""}, "input_name": "../x", "job": "j"}], timeout_s=60, gpu=False)
+
+
+def test_default_gpus_fall_back():
+    src = (ROOT / "src/synbio_bench/origami/modal_app.py").read_text()
+    assert '"OXDNA_MODAL_GPU", "L4,A10G"' in src
 
 
 def test_env_override_sets_modal_gpu(monkeypatch):

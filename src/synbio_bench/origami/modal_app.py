@@ -30,14 +30,16 @@ APP_NAME = "synbio-oxdna"
 VOLUME_NAME = "synbio-oxdna-runs"
 VOLUME_MOUNT = "/vol"
 JOBS_DIR = "jobs"
-GPU_FUNCTION = "run_stage_gpu"  # must match the function names below
-CPU_FUNCTION = "run_stage_cpu"
+GPU_FUNCTION = "run_stages_gpu"  # must match the function names below
+CPU_FUNCTION = "run_stages_cpu"
 
 # Pin oxDNA so every graded run uses the same simulator build. The local WSL build tracks master;
 # check `oxDNA` there prints the same version before comparing local and Modal results.
 OXDNA_REF = os.environ.get("OXDNA_REF", "v3.7.0")
-# Default GPU baked in at deploy time. configs/oxdna.yaml `modal.gpu` overrides it per call.
-DEFAULT_GPU = os.environ.get("OXDNA_MODAL_GPU", "T4")
+# GPUs baked in at deploy time, in order of preference: Modal falls back to the next when none of the first is
+# free (L4 is cheapest for oxDNA but often queues; A10G is close in cost and starts at once). See docs/modal.md.
+# configs/oxdna.yaml `modal.gpu` overrides it per call with a single type.
+DEFAULT_GPU = [g.strip() for g in os.environ.get("OXDNA_MODAL_GPU", "L4,A10G").split(",") if g.strip()]
 # Upper bound for one stage. The client passes the config's timeout_s, which is enforced inside the container.
 MAX_STAGE_SECONDS = 6 * 3600
 OXDNA = "/usr/local/bin/oxDNA"
@@ -71,63 +73,108 @@ def _gpu_name() -> str | None:
         return None
 
 
-def _text(x: str | bytes | None) -> str:
-    return x.decode(errors="replace") if isinstance(x, bytes) else (x or "")
+def _run_processes(works: list[Path], argv: list[str], timeout_s: float, together: bool) -> list[dict]:
+    """Run `argv` in each work dir, all at once or one after another; output goes to <work>/oxdna.log."""
+    procs: list[dict] = []
+
+    def start(work: Path) -> dict:
+        log = open(work / "oxdna.log", "w")  # a file, not a pipe: a full pipe would stall the process
+        return {"work": work, "log": log, "start": time.time(), "end": None, "timed_out": False,
+                "p": subprocess.Popen(argv, cwd=work, stdout=log, stderr=subprocess.STDOUT)}
+
+    def wait_all(batch: list[dict]) -> None:
+        while any(r["end"] is None for r in batch):
+            for r in batch:
+                if r["end"] is None and r["p"].poll() is not None:
+                    r["end"] = time.time()
+                elif r["end"] is None and time.time() - r["start"] > timeout_s:
+                    r["p"].kill()
+                    r["p"].wait()
+                    r["end"], r["timed_out"] = time.time(), True
+            time.sleep(0.2)
+
+    if together:
+        for k, work in enumerate(works):
+            procs.append(start(work))
+            if k < len(works) - 1:
+                time.sleep(0.25)  # oxDNA docs: staggered starts avoid GPU allocation failures under MPS
+        wait_all(procs)
+    else:
+        for work in works:
+            procs.append(start(work))
+            wait_all(procs[-1:])
+    out = []
+    for r in procs:
+        r["log"].close()
+        out.append({"returncode": r["p"].returncode, "timed_out": r["timed_out"],
+                    "seconds": round(r["end"] - r["start"], 2),
+                    "log": (r["work"] / "oxdna.log").read_text(errors="replace")})
+    return out
 
 
-def run_stage(files: dict[str, bytes], input_name: str, job: str, timeout_s: int) -> dict:
-    """Run `oxDNA <input_name>` on `files`; store produced/changed files under jobs/<job>/ in the Volume."""
-    for name in files:
-        if "/" in name or name in ("", ".", ".."):
-            raise ValueError(f"stage files must be plain names, got {name!r}")
-    work = Path(tempfile.mkdtemp(prefix="oxdna-"))
+def run_stages(jobs: list[dict], timeout_s: int, gpu: bool) -> dict:
+    """Run one oxDNA stage for several simulations: job = {"files", "input_name", "job"}.
+
+    On a GPU, two or more jobs share it under NVIDIA MPS; if MPS won't start they run one after another
+    (sharing a GPU without MPS is slower than taking turns: docs/modal.md). On CPU they run side by side.
+    Files each job produced or changed are stored under jobs/<job>/ in the Volume.
+    """
+    for j in jobs:
+        for name in j["files"]:
+            if "/" in name or "\\" in name or name in ("", ".", ".."):
+                raise ValueError(f"stage files must be plain names, got {name!r}")
+    root = Path(tempfile.mkdtemp(prefix="oxdna-"))
+    mps = None
     try:
-        for name, data in files.items():
-            (work / name).write_bytes(data)
-        t0 = time.time()
-        timed_out = False
-        try:
-            proc = subprocess.run([OXDNA, input_name], cwd=work, capture_output=True, text=True,
-                                  timeout=min(int(timeout_s), MAX_STAGE_SECONDS))
-            returncode, stdout, stderr = proc.returncode, proc.stdout, proc.stderr
-        except subprocess.TimeoutExpired as e:
-            returncode, stdout, stderr, timed_out = -9, _text(e.stdout), _text(e.stderr), True
-        seconds = round(time.time() - t0, 1)
+        works = []
+        for k, j in enumerate(jobs):
+            work = root / f"job{k}"
+            work.mkdir()
+            for name, data in j["files"].items():
+                (work / name).write_bytes(data)
+            works.append(work)
+        together = len(jobs) > 1
+        if gpu and together:
+            err = _start_mps(root / "mps")
+            mps = "on" if err is None else f"off ({err}); ran one at a time"
+            together = err is None
+        # All jobs of a stage share one input file name (input_<stage>).
+        runs = _run_processes(works, [OXDNA, jobs[0]["input_name"]], min(int(timeout_s), MAX_STAGE_SECONDS),
+                              together)
 
-        produced = {}
-        dest = Path(VOLUME_MOUNT) / JOBS_DIR / job
-        dest.mkdir(parents=True, exist_ok=True)
-        for p in sorted(work.iterdir()):
-            if not p.is_file():
-                continue
-            if p.name in files and p.read_bytes() == files[p.name]:
-                continue  # unchanged input
-            shutil.copyfile(p, dest / p.name)
-            produced[p.name] = p.stat().st_size
+        results = []
+        for j, work, run in zip(jobs, works, runs):
+            produced = {}
+            dest = Path(VOLUME_MOUNT) / JOBS_DIR / j["job"]
+            dest.mkdir(parents=True, exist_ok=True)
+            for p in sorted(work.iterdir()):
+                if not p.is_file() or p.name == "oxdna.log":
+                    continue
+                if p.name in j["files"] and p.read_bytes() == j["files"][p.name]:
+                    continue  # unchanged input
+                shutil.copyfile(p, dest / p.name)
+                produced[p.name] = p.stat().st_size
+            results.append({"returncode": run["returncode"], "timed_out": run["timed_out"],
+                            "seconds": run["seconds"], "stdout": run["log"], "stderr": "", "files": produced})
         volume.commit()
-        return {
-            "returncode": returncode,
-            "stdout": stdout,
-            "stderr": stderr,
-            "timed_out": timed_out,
-            "files": produced,
-            "seconds": seconds,
-            "gpu": _gpu_name(),
-            "oxdna_ref": OXDNA_REF,
-        }
+        return {"results": results, "gpu": _gpu_name() if gpu else None, "mps": mps, "oxdna_ref": OXDNA_REF}
     finally:
-        shutil.rmtree(work, ignore_errors=True)
+        if mps == "on":
+            _stop_mps()
+        shutil.rmtree(root, ignore_errors=True)
 
 
-@app.function(gpu=DEFAULT_GPU, volumes={VOLUME_MOUNT: volume}, timeout=MAX_STAGE_SECONDS + 600, retries=1)
-def run_stage_gpu(files: dict[str, bytes], input_name: str, job: str, timeout_s: int) -> dict:
-    return run_stage(files, input_name, job, timeout_s)
+# One stage for up to modal.sims_per_gpu simulations; runs one after another if MPS fails, hence the long
+# timeout (each process is still capped by the config's timeout_s).
+@app.function(gpu=DEFAULT_GPU, cpu=2.0, volumes={VOLUME_MOUNT: volume}, timeout=24 * 3600, retries=1)
+def run_stages_gpu(jobs: list[dict], timeout_s: int) -> dict:
+    return run_stages(jobs, timeout_s, gpu=True)
 
 
-# MC relaxation always uses oxDNA's CPU backend; don't pay GPU rates for it.
-@app.function(cpu=2.0, volumes={VOLUME_MOUNT: volume}, timeout=MAX_STAGE_SECONDS + 600, retries=1)
-def run_stage_cpu(files: dict[str, bytes], input_name: str, job: str, timeout_s: int) -> dict:
-    return run_stage(files, input_name, job, timeout_s)
+# MC relaxation always uses oxDNA's CPU backend; don't pay GPU rates for it. 2 physical cores = 4 threads.
+@app.function(cpu=2.0, volumes={VOLUME_MOUNT: volume}, timeout=24 * 3600, retries=1)
+def run_stages_cpu(jobs: list[dict], timeout_s: int) -> dict:
+    return run_stages(jobs, timeout_s, gpu=False)
 
 
 # ---------------------------------------------------------------------------
@@ -189,42 +236,26 @@ def bench(files: dict[str, bytes], variants: list[dict], timeout_s: int) -> dict
                     out.update(skipped=f"MPS unavailable: {err}")
                     results.append(out)
                     continue
-            procs = []
-            t0 = time.time()
+            works = []
             for k, text in enumerate(v["inputs"]):
                 work = root / f"copy{k}"
                 work.mkdir()
                 for name, data in files.items():
                     (work / name).write_bytes(data)
                 (work / "input").write_text(text)
-                log = open(work / "oxdna.log", "w")  # a file, not a pipe: a full pipe would stall the copy
-                procs.append({"work": work, "log": log, "start": time.time(), "end": None, "timed_out": False,
-                              "p": subprocess.Popen([OXDNA, "input"], cwd=work, stdout=log, stderr=subprocess.STDOUT)})
-                time.sleep(0.25)  # oxDNA docs: staggered starts avoid GPU allocation failures
-            while any(r["end"] is None for r in procs):
-                for r in procs:
-                    if r["end"] is None and r["p"].poll() is not None:
-                        r["end"] = time.time()
-                if time.time() - t0 > timeout_s:
-                    for r in procs:
-                        if r["end"] is None:
-                            r["p"].kill()
-                            r["p"].wait()
-                            r["end"], r["timed_out"] = time.time(), True
-                time.sleep(0.2)
+                works.append(work)
+            t0 = time.time()
+            runs = _run_processes(works, [OXDNA, "input"], timeout_s, together=True)
             copies = []
-            for r in procs:
-                r["log"].close()
-                log = (r["work"] / "oxdna.log").read_text(errors="replace")
-                m = _PER_STEP.search(log)
-                rc = r["p"].returncode
+            for work, r in zip(works, runs):
+                m = _PER_STEP.search(r["log"])
                 copies.append({
-                    "returncode": rc,
+                    "returncode": r["returncode"],
                     "timed_out": r["timed_out"],
-                    "wall_s": round(r["end"] - r["start"], 2),
+                    "wall_s": r["seconds"],
                     "per_step_ms": float(m.group(1)) if m else None,
-                    "last_energy": _last_line(r["work"] / "energy.dat"),
-                    "log_tail": None if rc == 0 else "\n".join(log.splitlines()[-15:]),
+                    "last_energy": _last_line(work / "energy.dat"),
+                    "log_tail": None if r["returncode"] == 0 else "\n".join(r["log"].splitlines()[-15:]),
                 })
             out.update(wall_s=round(time.time() - t0, 2), runs=copies)
         finally:

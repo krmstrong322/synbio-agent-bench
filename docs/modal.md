@@ -3,35 +3,40 @@
 `mode: modal` runs the grader's oxDNA simulations on [Modal](https://modal.com) instead of the local GPU.
 The agent is not affected: oxDNA only runs at grading time.
 
-**Status: draft, not yet run against a real Modal account.** The client side is tested against an
-in-process fake of the deployed app (`tests/test_modal_runner.py`). The container image, and the timings
-and costs below, still need a first real run (see the checklist).
+**Status:** deployed and smoke-tested on Modal (2026-11-05), and benchmarked (results below). Seeds sharing a
+GPU under MPS in the grader is new and has only run against the fake app in `tests/test_modal_runner.py`; check it
+with `scripts/modal_smoke.py --seeds 3` after redeploying.
 
 ## How it works
 
 ```
 local (synbio-bench evaluate)                         Modal
 -----------------------------                         -----
-simulate(): export design, write input_<stage>
+simulate_many(): the seeds of a design, in groups of
+  modal.sims_per_gpu (3); each group moves through the stages together
   for each stage (relax_mc, relax_md[, relax_md_k], prod):
-    send the files the stage reads  ──────────────►  run_stage_cpu (relax_mc: oxDNA's MC is CPU-only)
-    (input, topology, start conf, .op)                run_stage_gpu (MD stages, CUDA)
-                                                        oxDNA <input> in a scratch dir
+    send each sim's stage files     ──────────────►  run_stages_cpu (relax_mc: oxDNA's MC is CPU-only;
+    (input, topology, start conf, .op)                  the group runs side by side on 2 cores)
+                                                      run_stages_gpu (MD, CUDA; L4, else A10G):
+                                                        the group shares the GPU under NVIDIA MPS,
+                                                        or runs one at a time if MPS won't start
                                                         new/changed files ─► Volume jobs/<job>/
-    ◄── exit code, logs, file list, GPU name ─────
+    ◄── per sim: exit code, log, files; GPU, MPS ─
     download outputs from the Volume, delete them
     local backbone check → maybe another relax round
 analysis, scoring and figures (all local, unchanged)
 ```
 
 - The app is in `src/synbio_bench/origami/modal_app.py`, and the client is in `src/synbio_bench/origami/modal_runner.py`.
-  `oxdna._run_stage` hands stages to the client when `mode: modal`.
-- The image is `nvidia/cuda:12.8.1-devel` with oxDNA **v3.7.0**, built with `CUDA_COMMON_ARCH=ON`, so it builds
-  without a GPU and runs on any Modal GPU type.
+  `oxdna.simulate_many` hands each stage of a group to the client when `mode: modal`. A sim that fails a stage
+  drops out; the rest of its group carries on. Each stage log starts with a `[modal]` line naming the GPU,
+  how many sims shared it, and whether MPS was on.
+- The image is `nvidia/cuda:12.8.1-devel` with oxDNA **v3.7.0**, built with `CUDA_COMMON_ARCH=ON` and
+  `NATIVE_COMPILATION=OFF`, so it builds without a GPU and runs on any Modal GPU and host CPU.
 - Outputs go through a Volume (`synbio-oxdna-runs`) because production trajectories can be roughly 100–200 MB
   for a full-M13 design. Each job's folder is deleted after download.
-- Simulations run in parallel up to `modal.max_parallel` (default 4). Grading seeds run side by side, and
-  `synbio-bench evaluate --parallel N` grades N runs at once. Locally, everything stays serialized as before.
+- Up to `modal.max_parallel` groups (default 4) run at once, each on its own GPU. `synbio-bench evaluate
+  --parallel N` grades N runs at once. Locally, everything stays one at a time as before.
 - When Modal is unavailable (not installed, not logged in, or not deployed), `ModalUnavailable` is raised. That stops the
   evaluation instead of recording a failed simulation, so the run stays ungraded and can be retried.
 
@@ -47,7 +52,7 @@ analysis, scoring and figures (all local, unchanged)
    a while. Later deploys reuse the cached image:
    ```bash
    uv run modal deploy src/synbio_bench/origami/modal_app.py
-   # optional: OXDNA_MODAL_GPU=L4 uv run modal deploy ...   (the default GPU baked into the app)
+   # default GPUs: L4, falling back to A10G. To change: OXDNA_MODAL_GPU=A10G,L4 uv run modal deploy ...
    ```
 4. Smoke test on the 6HB reference (quick protocol), then compare it with a local WSL run:
    ```bash
@@ -67,12 +72,13 @@ analysis, scoring and figures (all local, unchanged)
 |---|---|---|
 | `app` | `synbio-oxdna` | deployed app name |
 | `volume` | `synbio-oxdna-runs` | Volume used to bring outputs back |
-| `gpu` | `null` | GPU per call (`T4`, `L4`, `A10G`, `L40S`, ...); `null` uses the deployed default (T4). Env: `OXDNA_MODAL_GPU` |
-| `max_parallel` | `4` | simulations at once (Starter allows about 10 GPUs) |
+| `gpu` | `null` | force one GPU type (`L4`, `A10G`, `T4`, ...); `null` uses the deployed list (L4, else A10G). Env: `OXDNA_MODAL_GPU` |
+| `sims_per_gpu` | `3` | seeds sharing one GPU under MPS; `1` gives each its own GPU |
+| `max_parallel` | `4` | groups (containers) at once (Starter allows 10 GPUs) |
 | `environment` | `null` | Modal environment, if you use more than one |
 
-`timeout_s` (top level) also applies on Modal and is enforced inside the container. A single stage can run for
-at most 6 h.
+`timeout_s` (top level) also applies on Modal and is enforced inside the container for each simulation. A single
+simulation stage can run for at most 6 h.
 
 ## Pricing (modal.com/pricing, read 2026-11-03)
 

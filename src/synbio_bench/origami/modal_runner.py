@@ -20,8 +20,8 @@ from typing import Any, Callable
 APP_NAME = "synbio-oxdna"
 VOLUME_NAME = "synbio-oxdna-runs"
 JOBS_DIR = "jobs"
-GPU_FUNCTION = "run_stage_gpu"
-CPU_FUNCTION = "run_stage_cpu"
+GPU_FUNCTION = "run_stages_gpu"
+CPU_FUNCTION = "run_stages_cpu"
 BENCH_GPU_FUNCTION = "bench_gpu"
 BENCH_CPU_FUNCTION = "bench_cpu"
 
@@ -38,8 +38,9 @@ MEM_PRICE_PER_GIB_S = 0.00000222
 DEFAULTS: dict[str, Any] = {
     "app": APP_NAME,
     "volume": VOLUME_NAME,
-    "gpu": None,  # None: the GPU the app was deployed with (T4 unless OXDNA_MODAL_GPU was set at deploy)
-    "max_parallel": 4,  # concurrent simulations; Modal's Starter plan allows ~10 GPUs at once
+    "gpu": None,  # None: the GPUs the app was deployed with (L4, else A10G; OXDNA_MODAL_GPU at deploy)
+    "sims_per_gpu": 3,  # simulations sharing one GPU under MPS (seeds of a design); 1 = one GPU each
+    "max_parallel": 4,  # groups (containers) at once; Modal's Starter plan allows 10 GPUs at once
     "environment": None,  # Modal environment name; None uses the workspace default
 }
 
@@ -109,23 +110,43 @@ def _is_timeout(e: Exception) -> bool:
 # ---------------------------------------------------------------------------
 
 
-def run_stage(cfg: Any, work: Path, input_name: str, opts: dict[str, Any]) -> subprocess.CompletedProcess:
-    s = settings(cfg)
-    gpu = str(opts.get("backend", "CPU")).upper() == "CUDA"
-    files = {}
-    for name in stage_inputs(opts, input_name):
-        path = work / name
-        if not path.is_file():
-            raise FileNotFoundError(f"stage input {name} missing from {work}")
-        files[name] = path.read_bytes()
+def run_stages(cfg: Any, items: list[tuple[Path, str, dict[str, Any]]]) -> list[Any]:
+    """Run one stage for several simulations in one container; items are (work dir, input name, options).
 
-    job = uuid.uuid4().hex
+    Returns, per item, a CompletedProcess or the exception for that item (TimeoutExpired, FileNotFoundError),
+    so one simulation's failure doesn't stop the others. Modal being unavailable raises ModalUnavailable.
+    """
+    s = settings(cfg)
+    gpu = str(items[0][2].get("backend", "CPU")).upper() == "CUDA"
+    out: list[Any] = [None] * len(items)
+    jobs, slots = [], []
+    for k, (work, input_name, opts) in enumerate(items):
+        files = {}
+        try:
+            for name in stage_inputs(opts, input_name):
+                path = work / name
+                if not path.is_file():
+                    raise FileNotFoundError(f"stage input {name} missing from {work}")
+                files[name] = path.read_bytes()
+        except (FileNotFoundError, ValueError) as e:
+            out[k] = e
+            continue
+        jobs.append({"files": files, "input_name": input_name, "job": uuid.uuid4().hex})
+        slots.append(k)
+    if not jobs:
+        return out
+    input_names = {j["input_name"] for j in jobs}
+    if len(input_names) != 1:
+        raise ValueError(f"a batch runs one stage, got inputs {sorted(input_names)}")
+
     remote = _function(s, gpu)
     try:
-        out = remote(files, input_name, job, int(cfg.timeout_s))
+        res = remote(jobs, int(cfg.timeout_s))
     except Exception as e:  # noqa: BLE001
         if _is_timeout(e):
-            raise subprocess.TimeoutExpired([APP_NAME, input_name], cfg.timeout_s) from e
+            for k in slots:
+                out[k] = subprocess.TimeoutExpired([APP_NAME, jobs[0]["input_name"]], cfg.timeout_s)
+            return out
         if type(e).__module__.startswith("modal"):
             raise ModalUnavailable(f"Modal call failed ({type(e).__name__}: {e}). Is the app deployed "
                                    f"(`modal deploy src/synbio_bench/origami/modal_app.py`) and are you "
@@ -133,19 +154,32 @@ def run_stage(cfg: Any, work: Path, input_name: str, opts: dict[str, Any]) -> su
         raise
 
     vol = _volume(s)
-    try:
-        for name in out.get("files", {}):
-            with open(work / name, "wb") as f:
-                vol.read_file_into_fileobj(f"{JOBS_DIR}/{job}/{name}", f)
-    finally:
+    fn_name = GPU_FUNCTION if gpu else CPU_FUNCTION
+    for k, job, r in zip(slots, jobs, res["results"]):
+        work = items[k][0]
         try:
-            vol.remove_file(f"{JOBS_DIR}/{job}", recursive=True)
-        except Exception:  # noqa: BLE001 - leftovers only cost storage; `modal volume rm` cleans them up
-            pass
+            for name in r.get("files", {}):
+                with open(work / name, "wb") as f:
+                    vol.read_file_into_fileobj(f"{JOBS_DIR}/{job['job']}/{name}", f)
+        finally:
+            try:
+                vol.remove_file(f"{JOBS_DIR}/{job['job']}", recursive=True)
+            except Exception:  # noqa: BLE001 - leftovers only cost storage; `modal volume rm` cleans them up
+                pass
+        if r.get("timed_out"):
+            out[k] = subprocess.TimeoutExpired([APP_NAME, job["input_name"]], cfg.timeout_s)
+            continue
+        header = (f"[modal] job={job['job']} function={fn_name} gpu={res.get('gpu')} oxdna={res.get('oxdna_ref')} "
+                  f"remote_seconds={r.get('seconds')} shared_with={len(jobs) - 1} mps={res.get('mps')}\n")
+        out[k] = subprocess.CompletedProcess(args=["modal", s["app"], job["input_name"]],
+                                             returncode=int(r["returncode"]),
+                                             stdout=header + r.get("stdout", ""), stderr=r.get("stderr", ""))
+    return out
 
-    if out.get("timed_out"):
-        raise subprocess.TimeoutExpired([APP_NAME, input_name], cfg.timeout_s)
-    header = (f"[modal] job={job} function={GPU_FUNCTION if gpu else CPU_FUNCTION} gpu={out.get('gpu')} "
-              f"oxdna={out.get('oxdna_ref')} remote_seconds={out.get('seconds')}\n")
-    return subprocess.CompletedProcess(args=["modal", s["app"], input_name], returncode=int(out["returncode"]),
-                                       stdout=header + out.get("stdout", ""), stderr=out.get("stderr", ""))
+
+def run_stage(cfg: Any, work: Path, input_name: str, opts: dict[str, Any]) -> subprocess.CompletedProcess:
+    """One simulation's stage (see run_stages)."""
+    (r,) = run_stages(cfg, [(work, input_name, opts)])
+    if isinstance(r, BaseException):
+        raise r
+    return r

@@ -16,6 +16,7 @@ import signal
 import subprocess
 import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from pathlib import Path, PureWindowsPath
 from typing import Any
@@ -26,8 +27,9 @@ from origami_agent.design import load_design, nucleotide_map
 
 from . import analysis, modal_runner
 
-# One GPU, one simulation at a time, even when agents run in parallel threads. Modal runs several at once
-# (each on its own GPU), up to `modal.max_parallel`.
+# One GPU, one simulation at a time, even when agents run in parallel threads. On Modal, up to
+# `modal.max_parallel` groups run at once, each group being up to `modal.sims_per_gpu` simulations that share
+# one GPU under MPS.
 _SIM_SLOTS: dict[int, threading.BoundedSemaphore] = {}
 _SIM_SLOTS_LOCK = threading.Lock()
 
@@ -67,8 +69,13 @@ class OxDNAConfig:
 
     @property
     def max_parallel(self) -> int:
-        """How many simulations may run at once with this runner."""
+        """How many simulation groups may run at once with this runner."""
         return max(1, int(modal_runner.settings(self)["max_parallel"])) if self.mode == "modal" else 1
+
+    @property
+    def sims_per_gpu(self) -> int:
+        """How many simulations share one GPU (run their stages together)."""
+        return max(1, int(modal_runner.settings(self)["sims_per_gpu"])) if self.mode == "modal" else 1
 
 
 def _sim_slot(cfg: OxDNAConfig) -> threading.BoundedSemaphore:
@@ -284,6 +291,17 @@ def _tail(text: str, n: int = 25) -> str:
     return "\n".join(text.strip().splitlines()[-n:])
 
 
+@dataclass
+class SimJob:
+    """One simulation of a design: where to write it, its seed, and what to score it against."""
+
+    design_path: str | Path
+    out_dir: str | Path
+    seed: int = 1
+    shape: dict[str, Any] | None = None
+    wireframe: dict[str, Any] | None = None
+
+
 def simulate(
     design_path: str | Path,
     out_dir: str | Path,
@@ -299,79 +317,152 @@ def simulate(
     With `reanalyze=True`, a previous successful run in `out_dir` is re-analysed
     instead of re-simulated (use after changing the analysis code).
     """
-    work = Path(out_dir)
-    previous = work / "result.json"
-    if reanalyze and previous.exists() and json.loads(previous.read_text()).get("ok"):
-        result = json.loads(previous.read_text())
-        result["metrics"] = analysis.analyze_run(work, shape, wireframe)
-        previous.write_text(json.dumps(result, indent=2))
-        return result
-    if work.exists():
-        shutil.rmtree(work)
-    work.mkdir(parents=True)
-    result: dict[str, Any] = {"protocol": protocol, "seed": seed, "runner": cfg.mode, "work_dir": str(work)}
-    if cfg.mode == "mock":
-        result["WARNING"] = "mock oxDNA runner: metrics are synthetic and do not reflect real physics"
+    return simulate_many([SimJob(design_path, out_dir, seed, shape, wireframe)], cfg, protocol, reanalyze)[0]
 
-    try:
-        result["export"] = export_design(design_path, work)
-    except Exception as e:  # noqa: BLE001
-        result.update(ok=False, failed_stage="export", error=f"{type(e).__name__}: {e}")
-        return result
 
-    result["initial_backbone"] = analysis.backbone_report(work / "initial.top", work / "initial.dat", work / "index_map.json")
-    inputs = build_inputs(cfg, protocol, seed)
-    timings: dict[str, float] = {}
+def simulate_many(jobs: list[SimJob], cfg: OxDNAConfig, protocol: str = "quick",
+                  reanalyze: bool = False) -> list[dict[str, Any]]:
+    """Simulate several jobs (e.g. the seeds of one design); results come back in job order.
 
-    def run(stage: str, opts: dict[str, Any]) -> bool:
-        write_input(work / f"input_{stage}", opts)
-        t0 = time.time()
+    Jobs are grouped `cfg.sims_per_gpu` at a time; a group moves through the stages together, so on Modal each
+    stage of a group is one container whose simulations share the GPU under MPS. Locally, groups are of one
+    and run one after another, exactly as before.
+    """
+    k = cfg.sims_per_gpu
+    groups = [jobs[i:i + k] for i in range(0, len(jobs), k)]
+    if len(groups) <= 1:
+        return _simulate_group(jobs, cfg, protocol, reanalyze) if jobs else []
+    with ThreadPoolExecutor(max_workers=min(len(groups), cfg.max_parallel)) as pool:
+        done = list(pool.map(lambda g: _simulate_group(g, cfg, protocol, reanalyze), groups))
+    return [r for group in done for r in group]
+
+
+@dataclass
+class _Sim:
+    job: SimJob
+    work: Path
+    result: dict[str, Any]
+    inputs: dict[str, dict[str, Any]] = field(default_factory=dict)
+    timings: dict[str, float] = field(default_factory=dict)
+    alive: bool = True
+
+
+def _run_stages(cfg: OxDNAConfig, items: list[tuple[Path, str, dict[str, Any]]]) -> list[Any]:
+    """Per item, a CompletedProcess or the exception (timeout, runner not found) for that item."""
+    if cfg.mode == "modal":
+        return modal_runner.run_stages(cfg, items)
+    out: list[Any] = []
+    for work, input_name, opts in items:
         try:
-            proc = _run_stage(cfg, work, f"input_{stage}", opts)
-        except subprocess.TimeoutExpired:
-            result.update(ok=False, failed_stage=stage, error=f"timed out after {cfg.timeout_s}s")
-            return False
-        except FileNotFoundError as e:
-            result.update(ok=False, failed_stage=stage, error=f"oxDNA runner not found: {e}")
-            return False
-        timings[stage] = round(time.time() - t0, 1)
-        (work / f"log_{stage}.txt").write_text(proc.stdout + "\n--- stderr ---\n" + proc.stderr)
-        if proc.returncode != 0 or not (work / opts["lastconf_file"]).exists():
-            result.update(
+            out.append(_run_stage(cfg, work, input_name, opts))
+        except (subprocess.TimeoutExpired, FileNotFoundError) as e:
+            out.append(e)
+    return out
+
+
+def _stage(cfg: OxDNAConfig, sims: list[_Sim], stage: str, opts_of: dict[int, dict[str, Any]]) -> None:
+    """Run `stage` for the given sims together; a sim that fails is marked dead with the error recorded."""
+    items = []
+    for sim in sims:
+        write_input(sim.work / f"input_{stage}", opts_of[id(sim)])
+        items.append((sim.work, f"input_{stage}", opts_of[id(sim)]))
+    t0 = time.time()
+    results = _run_stages(cfg, items)
+    seconds = round(time.time() - t0, 1)
+    for sim, proc in zip(sims, results):
+        opts = opts_of[id(sim)]
+        if isinstance(proc, subprocess.TimeoutExpired):
+            sim.result.update(ok=False, failed_stage=stage, error=f"timed out after {cfg.timeout_s}s")
+            sim.alive = False
+            continue
+        if isinstance(proc, FileNotFoundError):
+            sim.result.update(ok=False, failed_stage=stage, error=f"oxDNA runner not found: {proc}")
+            sim.alive = False
+            continue
+        if isinstance(proc, BaseException):
+            raise proc
+        sim.timings[stage] = seconds
+        (sim.work / f"log_{stage}.txt").write_text(proc.stdout + "\n--- stderr ---\n" + proc.stderr)
+        if proc.returncode != 0 or not (sim.work / opts["lastconf_file"]).exists():
+            sim.result.update(
                 ok=False,
                 failed_stage=stage,
                 error=f"oxDNA exited with code {proc.returncode}{_signal_note(proc.returncode)}",
                 log_tail=_tail(proc.stderr or proc.stdout),
             )
-            return False
-        return True
+            sim.alive = False
+
+
+def _simulate_group(jobs: list[SimJob], cfg: OxDNAConfig, protocol: str, reanalyze: bool) -> list[dict[str, Any]]:
+    sims: list[_Sim] = []
+    for job in jobs:
+        work = Path(job.out_dir)
+        previous = work / "result.json"
+        if reanalyze and previous.exists() and json.loads(previous.read_text()).get("ok"):
+            result = json.loads(previous.read_text())
+            result["metrics"] = analysis.analyze_run(work, job.shape, job.wireframe)
+            previous.write_text(json.dumps(result, indent=2))
+            sims.append(_Sim(job, work, result, alive=False))
+            continue
+        if work.exists():
+            shutil.rmtree(work)
+        work.mkdir(parents=True)
+        result: dict[str, Any] = {"protocol": protocol, "seed": job.seed, "runner": cfg.mode, "work_dir": str(work)}
+        if cfg.mode == "mock":
+            result["WARNING"] = "mock oxDNA runner: metrics are synthetic and do not reflect real physics"
+        sim = _Sim(job, work, result)
+        sims.append(sim)
+        try:
+            result["export"] = export_design(job.design_path, work)
+        except Exception as e:  # noqa: BLE001
+            result.update(ok=False, failed_stage="export", error=f"{type(e).__name__}: {e}")
+            sim.alive = False
+            continue
+        result["initial_backbone"] = analysis.backbone_report(work / "initial.top", work / "initial.dat",
+                                                              work / "index_map.json")
+        sim.inputs = build_inputs(cfg, protocol, job.seed)
+    simulated = [sim for sim in sims if sim.alive]
+    if len(simulated) > 1:
+        for sim in simulated:
+            sim.result["shared_gpu_with"] = len(simulated) - 1
 
     with _sim_slot(cfg):
-        for stage, opts in inputs.items():
-            if not run(stage, opts):
-                return result
+        for stage in ("relax_mc", "relax_md", "prod"):
+            alive = [sim for sim in sims if sim.alive]
+            if not alive:
+                break
+            _stage(cfg, alive, stage, {id(sim): sim.inputs[stage] for sim in alive})
             if stage == "relax_md" and cfg.mode != "mock":
                 # Production MD refuses to start if any bond is still longer than the backbone potential
                 # allows (e.g. a long unpaired loop still being pulled in). Keep relaxing for a few rounds.
                 for k in range(1, EXTRA_RELAX_ROUNDS + 1):
-                    worst = analysis.max_backbone_site_bond(work / "initial.top", work / "relaxed.dat")
-                    result["relaxed_max_backbone_bond"] = round(worst, 3)
-                    if worst <= MAX_BACKBONE_BOND_OX:
+                    need = []
+                    for sim in (s_ for s_ in sims if s_.alive):
+                        worst = analysis.max_backbone_site_bond(sim.work / "initial.top", sim.work / "relaxed.dat")
+                        sim.result["relaxed_max_backbone_bond"] = round(worst, 3)
+                        if worst > MAX_BACKBONE_BOND_OX:
+                            need.append(sim)
+                    if not need:
                         break
-                    more = {**opts, "conf_file": "relaxed.dat", "lastconf_file": "relaxed.dat",
-                            "trajectory_file": f"traj_relax_md_{k}.dat", "energy_file": f"energy_relax_md_{k}.dat"}
-                    if not run(f"relax_md_{k}", more):
-                        return result
-                    result["extra_relax_rounds"] = k
-    result["stage_seconds"] = timings
+                    more = {id(sim): {**sim.inputs["relax_md"], "conf_file": "relaxed.dat",
+                                      "lastconf_file": "relaxed.dat", "trajectory_file": f"traj_relax_md_{k}.dat",
+                                      "energy_file": f"energy_relax_md_{k}.dat"} for sim in need}
+                    _stage(cfg, need, f"relax_md_{k}", more)
+                    for sim in need:
+                        if sim.alive:
+                            sim.result["extra_relax_rounds"] = k
 
-    try:
-        result["metrics"] = analysis.analyze_run(work, shape, wireframe)
-        result["ok"] = True
-    except Exception as e:  # noqa: BLE001
-        result.update(ok=False, failed_stage="analysis", error=f"{type(e).__name__}: {e}")
-    (work / "result.json").write_text(json.dumps(result, indent=2))
-    return result
+    for sim in sims:
+        if not sim.alive:
+            continue
+        sim.result["stage_seconds"] = sim.timings
+        try:
+            sim.result["metrics"] = analysis.analyze_run(sim.work, sim.job.shape, sim.job.wireframe)
+            sim.result["ok"] = True
+        except Exception as e:  # noqa: BLE001
+            sim.result.update(ok=False, failed_stage="analysis", error=f"{type(e).__name__}: {e}")
+        (sim.work / "result.json").write_text(json.dumps(sim.result, indent=2))
+    return [sim.result for sim in sims]
 
 
 def config_from_env(cfg: OxDNAConfig) -> OxDNAConfig:

@@ -17,12 +17,11 @@ All raw metrics are kept so other weightings can be computed later.
 from __future__ import annotations
 
 import statistics
-from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any
 
 from .spec import validate_design
-from .oxdna import OxDNAConfig, simulate
+from .oxdna import OxDNAConfig, SimJob, simulate_many
 
 HARD_ERROR_PREFIXES = ("could not load", "illegal", "two nucleotides", "no strand is marked")
 
@@ -56,13 +55,10 @@ def evaluate_submission(
 
     sims, bp, shape_iou = [], [], []
     if valid:
-        def run_seed(seed: int) -> dict[str, Any]:
-            return simulate(design_path, out_dir / f"seed_{seed}", oxdna, protocol=protocol, seed=seed,
-                            reanalyze=reanalyze, shape=spec.get("shape"), wireframe=spec.get("wireframe"))
-
-        # Seeds run side by side when the runner allows it (Modal); results keep the seed order.
-        with ThreadPoolExecutor(max_workers=min(len(seeds), oxdna.max_parallel) or 1) as pool:
-            sims = list(pool.map(run_seed, seeds))
+        # On Modal the seeds share GPUs under MPS (modal.sims_per_gpu at a time); locally they run in turn.
+        jobs = [SimJob(design_path, out_dir / f"seed_{seed}", seed, spec.get("shape"), spec.get("wireframe"))
+                for seed in seeds]
+        sims = simulate_many(jobs, oxdna, protocol=protocol, reanalyze=reanalyze)
         for r in sims:
             m = r.get("metrics", {}) if r.get("ok") else {}
             bp.append(m.get("bp_fraction_mean") or 0.0)

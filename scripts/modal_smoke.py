@@ -5,6 +5,7 @@ Prereqs (docs/modal.md): `uv sync --extra modal`, `uv run modal token new`,
 
 Run:  uv run python scripts/modal_smoke.py                    # quick protocol, deployed GPU
       uv run python scripts/modal_smoke.py --protocol shape --gpu L4
+      uv run python scripts/modal_smoke.py --seeds 3              # 3 seeds sharing one GPU under MPS
       uv run python scripts/modal_smoke.py --compare runs/_smoke/local   # compare with a local/WSL run
 
 Prints per-stage wall time (including transfer), the GPU and oxDNA version used, and the grading metrics.
@@ -25,7 +26,7 @@ from pathlib import Path
 import yaml
 
 from synbio_bench.origami.modal_runner import ModalUnavailable
-from synbio_bench.origami.oxdna import OxDNAConfig, config_from_env, simulate
+from synbio_bench.origami.oxdna import OxDNAConfig, SimJob, config_from_env, simulate_many
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -48,6 +49,8 @@ def main() -> None:
     p = argparse.ArgumentParser()
     p.add_argument("--protocol", default="quick")
     p.add_argument("--seed", type=int, default=1)
+    p.add_argument("--seeds", type=int, default=1,
+                   help="run seeds seed..seed+N-1 together (they share GPUs, modal.sims_per_gpu at a time)")
     p.add_argument("--gpu", help="Modal GPU type for this run (default: the deployed one)")
     p.add_argument("--out", default=str(ROOT / "runs" / "_smoke" / "modal"))
     p.add_argument("--compare", help="work dir of an earlier simulate() run to compare against")
@@ -62,21 +65,26 @@ def main() -> None:
     design.parent.mkdir(parents=True, exist_ok=True)
     subprocess.run([sys.executable, "hb6_honeycomb.py", str(design)], cwd=ROOT / "reference_designs", check=True)
 
+    seeds = list(range(args.seed, args.seed + args.seeds))
+    out = Path(args.out)
+    dirs = [out] if len(seeds) == 1 else [out / f"seed_{s}" for s in seeds]
     t0 = time.time()
     try:
-        r = simulate(design, Path(args.out), cfg, protocol=args.protocol, seed=args.seed)
+        rs = simulate_many([SimJob(design, d, s) for d, s in zip(dirs, seeds)], cfg, protocol=args.protocol)
     except ModalUnavailable as e:
         sys.exit(f"Modal is not ready: {e}")
     print(f"total {round(time.time() - t0)} s")
-    for log in sorted(Path(args.out).glob("log_*.txt")):
-        header = log.read_text().splitlines()[0] if log.stat().st_size else ""
-        if m := re.match(r"\[modal\] (.*)", header):
-            print(f"{log.stem:>18}: {m.group(1)}")
-    print(json.dumps({"modal": summary(r)}, indent=1))
+    for d, s, r in zip(dirs, seeds, rs):
+        print(f"--- seed {s}")
+        for log in sorted(d.glob("log_*.txt")):
+            header = log.read_text().splitlines()[0] if log.stat().st_size else ""
+            if m := re.match(r"\[modal\] (.*)", header):
+                print(f"{log.stem:>18}: {m.group(1)}")
+        print(json.dumps({"modal": summary(r)}, indent=1))
     if args.compare:
         other = json.loads((Path(args.compare) / "result.json").read_text())
         print(json.dumps({"compare": summary(other)}, indent=1))
-    sys.exit(0 if r.get("ok") else 1)
+    sys.exit(0 if all(r.get("ok") for r in rs) else 1)
 
 
 if __name__ == "__main__":
