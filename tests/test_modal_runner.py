@@ -11,6 +11,7 @@ import ast
 import json
 import re
 import stat
+import subprocess
 import sys
 import tempfile
 import threading
@@ -415,3 +416,74 @@ def test_bench_script_end_to_end(tmp_path, monkeypatch, fake_modal):
     assert len(fake_modal.calls) == relax_calls
     rows = json.loads((out / "results.json").read_text())["rows"]
     assert {(r["gpu"], r["copies"]) for r in rows if r["ok"]} == {("T4", 1), ("T4", 2), ("L4", 1), ("L4", 2)}
+
+
+# ---------------------------------------------------------------------------
+# Sharing GPUs across designs (evaluate_many, simulate_many grouping, runner)
+# ---------------------------------------------------------------------------
+
+
+def build_tetrahedron(tmp_path: Path) -> Path:
+    out = tmp_path / "tetra.sc"
+    subprocess.run([sys.executable, "wireframe_tetrahedron.py", str(out)], cwd=ROOT / "reference_designs",
+                   check=True, capture_output=True)
+    return out
+
+
+def test_groups_hold_similar_sizes(tmp_path, monkeypatch):
+    """Jobs are grouped by design size (seeds of a design stay together); results return in job order."""
+    hb6, tetra = build_reference(tmp_path), build_tetrahedron(tmp_path)  # 1,458 and 2,088 nt
+    assert oxdna.design_size(hb6) == 1458 and oxdna.design_size(tetra) == 2088
+    groups = []
+
+    def fake_group(jobs, cfg, protocol, reanalyze):
+        groups.append([Path(j.design_path).name for j in jobs])
+        return [{"ok": True, "seed": j.seed, "design": Path(j.design_path).name} for j in jobs]
+
+    monkeypatch.setattr(oxdna, "_simulate_group", fake_group)
+    jobs = [oxdna.SimJob(d, tmp_path / f"o{i}", seed) for i, (d, seed) in
+            enumerate([(tetra, 1), (hb6, 1), (tetra, 2), (hb6, 2)])]
+    seen = []
+    rs = oxdna.simulate_many(jobs, modal_cfg(sims_per_gpu=2, max_parallel=1), on_result=lambda i, r: seen.append(i))
+    assert groups == [["hb6.sc", "hb6.sc"], ["tetra.sc", "tetra.sc"]]
+    assert [(r["design"], r["seed"]) for r in rs] == [("tetra.sc", 1), ("hb6.sc", 1), ("tetra.sc", 2), ("hb6.sc", 2)]
+    assert sorted(seen) == [0, 1, 2, 3]
+
+    groups.clear()  # locally: given order, one at a time
+    oxdna.simulate_many(jobs, OxDNAConfig(mode="mock"))
+    assert groups == [["tetra.sc"], ["hb6.sc"], ["tetra.sc"], ["hb6.sc"]]
+
+
+def test_evaluate_many_shares_gpus_across_designs(tmp_path, fake_modal):
+    from synbio_bench.origami.scoring import Submission, evaluate_many
+
+    hb6, tetra = build_reference(tmp_path), build_tetrahedron(tmp_path)
+    subs = [Submission(hb6, HB6_SPEC, tmp_path / "a"), Submission(tmp_path / "missing.sc", HB6_SPEC, tmp_path / "b"),
+            Submission(tetra, HB6_SPEC, tmp_path / "c")]
+    done = []
+    grades = evaluate_many(subs, modal_cfg(), protocol="quick", seeds=[1], on_done=lambda i, g: done.append(i))
+    assert done[0] == 1  # the missing design is reported straight away
+    assert sorted(done) == [0, 1, 2]
+    assert grades[1]["submitted"] is False
+    assert grades[0]["valid"] and grades[2]["valid"]
+    assert grades[0]["sim_ok"] == [True] and grades[2]["sim_ok"] == [True]
+    assert grades[0]["sims_sharing_gpu"] == [2] and grades[2]["sims_sharing_gpu"] == [2]
+    assert ("input_prod", True, 2) in fake_modal.batches  # both designs' production MD in one container
+
+
+def test_runner_grades_runs_together_and_saves_each(tmp_path, monkeypatch, fake_modal):
+    from synbio_bench import runner
+
+    monkeypatch.setattr(runner, "_figures", lambda *a, **k: None)
+    items = []
+    for name, design in (("r1", build_reference(tmp_path)), ("r2", build_tetrahedron(tmp_path))):
+        run_dir = tmp_path / name
+        (run_dir / "workspace" / "final").mkdir(parents=True)
+        (run_dir / "workspace" / "final" / "design.sc").write_bytes(design.read_bytes())
+        items.append((run_dir, {"task": "t", "model": "m"}, {"spec": HB6_SPEC}))
+    exp = {"evaluation": {"protocol": "quick", "seeds": [1]}}
+    runner._grade_all(exp, modal_cfg(), items, reanalyze=False, label="eval")
+    for run_dir, _, _ in items:
+        grade = json.loads((run_dir / "result.json").read_text())["grade"]
+        assert grade["valid"] and grade["sims_sharing_gpu"] == [2]
+    assert ("input_prod", True, 2) in fake_modal.batches

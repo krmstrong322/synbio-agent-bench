@@ -19,7 +19,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from pathlib import Path, PureWindowsPath
-from typing import Any
+from typing import Any, Callable
 
 import numpy as np
 
@@ -320,21 +320,53 @@ def simulate(
     return simulate_many([SimJob(design_path, out_dir, seed, shape, wireframe)], cfg, protocol, reanalyze)[0]
 
 
-def simulate_many(jobs: list[SimJob], cfg: OxDNAConfig, protocol: str = "quick",
-                  reanalyze: bool = False) -> list[dict[str, Any]]:
-    """Simulate several jobs (e.g. the seeds of one design); results come back in job order.
+def design_size(design_path: str | Path) -> int:
+    """Nucleotides in a design (0 if it can't be read); used to group similar sizes on one GPU."""
+    try:
+        return sum(strand.dna_length() for strand in load_design(design_path).strands)
+    except Exception:  # noqa: BLE001 - export reports the real error later
+        return 0
 
-    Jobs are grouped `cfg.sims_per_gpu` at a time; a group moves through the stages together, so on Modal each
-    stage of a group is one container whose simulations share the GPU under MPS. Locally, groups are of one
-    and run one after another, exactly as before.
+
+def simulate_many(jobs: list[SimJob], cfg: OxDNAConfig, protocol: str = "quick", reanalyze: bool = False,
+                  on_result: Callable[[int, dict[str, Any]], None] | None = None) -> list[dict[str, Any]]:
+    """Simulate several jobs (seeds of one design, or of many designs); results come back in job order.
+
+    Jobs are grouped `cfg.sims_per_gpu` at a time and a group moves through the stages together, so on Modal
+    each stage of a group is one container whose simulations share the GPU under MPS. Jobs are sorted by design
+    size first, so a group's simulations finish at about the same time instead of small ones waiting on a
+    large one (a design's seeds stay together). Up to `cfg.max_parallel` groups run at once.
+    Locally, groups are of one and run in the given order, one after another, as before.
+
+    `on_result(job_index, result)` is called as each job's group finishes (from a worker thread on Modal),
+    so callers can save results as they come.
     """
     k = cfg.sims_per_gpu
-    groups = [jobs[i:i + k] for i in range(0, len(jobs), k)]
-    if len(groups) <= 1:
-        return _simulate_group(jobs, cfg, protocol, reanalyze) if jobs else []
-    with ThreadPoolExecutor(max_workers=min(len(groups), cfg.max_parallel)) as pool:
-        done = list(pool.map(lambda g: _simulate_group(g, cfg, protocol, reanalyze), groups))
-    return [r for group in done for r in group]
+    order = list(range(len(jobs)))
+    if k > 1 and len(jobs) > 1:
+        sizes: dict[str, int] = {}
+        for job in jobs:
+            key = str(job.design_path)
+            if key not in sizes:
+                sizes[key] = design_size(job.design_path)
+        order.sort(key=lambda i: (sizes[str(jobs[i].design_path)], i))
+    groups = [order[i:i + k] for i in range(0, len(order), k)]
+    results: list[dict[str, Any]] = [{} for _ in jobs]
+
+    def run(group: list[int]) -> None:
+        for i, r in zip(group, _simulate_group([jobs[i] for i in group], cfg, protocol, reanalyze)):
+            results[i] = r
+            if on_result:
+                on_result(i, r)
+
+    if len(groups) <= 1 or cfg.max_parallel <= 1:
+        for g in groups:
+            run(g)
+    else:
+        with ThreadPoolExecutor(max_workers=min(len(groups), cfg.max_parallel)) as pool:
+            for f in [pool.submit(run, g) for g in groups]:
+                f.result()
+    return results
 
 
 @dataclass

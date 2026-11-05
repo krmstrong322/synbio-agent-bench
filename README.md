@@ -150,10 +150,11 @@ wsl -d Ubuntu -- bash /mnt/c/synbio-ai/scripts/setup_oxdna_wsl.sh
 On Linux/macOS, use `mode: local`. To exercise the harness without a simulator, set `OXDNA_MODE=mock`.
 Mock metrics are synthetic and flagged in every result.
 
-### oxDNA on Modal (cloud GPUs, draft)
+### oxDNA on Modal (cloud GPUs)
 
-`mode: modal` runs each grading stage on a [Modal](https://modal.com) GPU and keeps all analysis local. It can
-grade several designs at once (`evaluate --parallel N`). Setup, settings and the first-run checklist are in
+`mode: modal` runs each grading stage on a [Modal](https://modal.com) GPU and keeps all analysis local.
+`evaluate` and `baseline` pool all their runs, so up to 3 simulations of similar size share each GPU under
+NVIDIA MPS (about half the cost of one per GPU), on several GPUs at once. Setup, settings and the first-run checklist are in
 `docs/modal.md`. In short: `uv sync --extra modal`, `uv run modal token new`,
 `uv run modal deploy src/synbio_bench/origami/modal_app.py`, `uv run python scripts/modal_smoke.py`.
 
@@ -165,7 +166,7 @@ uv run synbio-bench run --model claude-sonnet-5-5 --task origami/4hb-square --re
 uv run synbio-bench run                                         # full grid from configs/experiment.yaml
 uv run synbio-bench run --no-eval --parallel 4                  # agents only, then:
 uv run synbio-bench evaluate                                    # grade later (GPU-bound, serialized)
-OXDNA_MODE=modal uv run synbio-bench evaluate --parallel 4      # grade on Modal GPUs, 4 at a time
+OXDNA_MODE=modal uv run synbio-bench evaluate                  # grade on Modal: all runs share GPUs
 uv run synbio-bench report                                      # runs/<name>/results.csv + summary.md
 uv run synbio-bench --experiment configs/shapes.yaml run        # flat-shape scaling study
 uv run synbio-bench --experiment configs/wireframe-tetrahedron.yaml run   # wireframe tetrahedron

@@ -14,6 +14,7 @@ import argparse
 import json
 import subprocess
 import sys
+import threading
 import time
 import traceback
 from concurrent.futures import ThreadPoolExecutor
@@ -34,7 +35,7 @@ from origami_agent.tools import Workspace
 from .origami.harness import SYSTEM_PROMPT as BENCHMARK_PROMPT
 from .origami.harness import Submission, make_submit_tool
 from .origami.oxdna import OxDNAConfig, config_from_env
-from .origami.scoring import evaluate_submission
+from .origami.scoring import Submission, evaluate_many, evaluate_submission
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -279,6 +280,9 @@ def cmd_run(args: argparse.Namespace) -> None:
     (out_root / "experiment.snapshot.yaml").write_text(
         yaml.safe_dump({"experiment": exp, "models": {m: models[m] for m in model_ids}, "oxdna": oxdna.__dict__})
     )
+    if oxdna.mode == "modal" and not args.no_eval and oxdna.sims_per_gpu > 1:
+        print("[note] mode: modal grades each run on its own as its agent finishes, so only its seeds share a GPU. "
+              "For the cheapest grading, use `run --no-eval`, then `evaluate`, which pools all runs.")
     jobs = [(t, models[m], r) for t in task_ids for m in model_ids for r in range(repeats)]
     _preload_providers()
     with ThreadPoolExecutor(max_workers=args.parallel) as pool:
@@ -286,10 +290,48 @@ def cmd_run(args: argparse.Namespace) -> None:
             f.result()
 
 
+def _rel(path: Path) -> str:
+    try:
+        return str(path.relative_to(ROOT))
+    except ValueError:
+        return str(path)
+
+
+def _grade_all(exp: dict, oxdna: OxDNAConfig, items: list[tuple[Path, dict, dict]], reanalyze: bool,
+               label: str) -> None:
+    """Grade (run_dir, info, task) items together, so on Modal their simulations share GPUs.
+
+    Each run's result.json and figures are written as soon as its grade is complete, so an interrupted
+    evaluation keeps what has finished and the next one resumes.
+    """
+    if not items:
+        return
+    eval_cfg = exp.get("evaluation", {})
+    subs = [Submission(run_dir / "workspace" / "final" / "design.sc", task["spec"], run_dir / "eval",
+                       task.get("weights") or eval_cfg.get("weights")) for run_dir, _, task in items]
+    if oxdna.sims_per_gpu > 1:
+        print(f"[eval] grading {len(items)} run(s) together: up to {oxdna.sims_per_gpu} simulations per GPU, "
+              f"{oxdna.max_parallel} GPUs at once")
+    lock = threading.Lock()  # matplotlib is not thread-safe; also keeps the log lines whole
+
+    def on_done(i: int, g: dict) -> None:
+        run_dir, info, task = items[i]
+        with lock:
+            info["grade"] = g
+            (run_dir / "result.json").write_text(json.dumps(info, indent=1, default=str))
+            _figures(run_dir, task, info["model"])
+            print(f"[{label}] {_rel(run_dir)}: overall={g.get('overall')} valid={g.get('valid')}", flush=True)
+
+    evaluate_many(subs, oxdna, protocol=eval_cfg.get("protocol", "standard"), seeds=eval_cfg.get("seeds", [1]),
+                  reanalyze=reanalyze, on_done=on_done)
+
+
 def cmd_evaluate(args: argparse.Namespace) -> None:
     """Grade agent runs that have agent.json but no result.json (e.g. after `run --no-eval`)."""
     exp = load_yaml(Path(args.experiment))
     oxdna = load_oxdna(Path(args.oxdna))
+    if args.parallel:
+        oxdna.modal = {**oxdna.modal, "max_parallel": args.parallel}
     todo = []
     for agent_json in sorted((ROOT / "runs" / exp["name"]).glob("*/*/rep*/agent.json")):
         run_dir = agent_json.parent
@@ -298,25 +340,14 @@ def cmd_evaluate(args: argparse.Namespace) -> None:
         info = json.loads(agent_json.read_text())
         if not _infra_failure(info):
             todo.append((run_dir, info, load_task(info["task"])))
-
-    def grade_one(item: tuple[Path, dict, dict]) -> dict:
-        run_dir, info, task = item
-        print(f"[eval] {run_dir.relative_to(ROOT)}")
-        return grade(run_dir, task, oxdna, exp.get("evaluation", {}), args.reanalyze)
-
-    # Grading runs in worker threads (simulations are capped by the runner: 1 locally, modal.max_parallel on
-    # Modal); results and figures are written here, one at a time, because matplotlib is not thread-safe.
-    with ThreadPoolExecutor(max_workers=max(1, args.parallel)) as pool:
-        for (run_dir, info, task), g in zip(todo, pool.map(grade_one, todo)):
-            info["grade"] = g
-            (run_dir / "result.json").write_text(json.dumps(info, indent=1, default=str))
-            _figures(run_dir, task, info["model"])
+    _grade_all(exp, oxdna, todo, args.reanalyze, "eval")
 
 
 def cmd_baseline(args: argparse.Namespace) -> None:
-    """Build each task's reference design (if it has one) and grade it as the `reference` arm."""
+    """Build each task's reference design (if it has one) and grade them all as the `reference` arm."""
     exp = load_yaml(Path(args.experiment))
     oxdna = load_oxdna(Path(args.oxdna))
+    todo = []
     for task_id in args.task or exp["tasks"]:
         task = load_task(task_id)
         if not task.get("reference"):
@@ -328,12 +359,9 @@ def cmd_baseline(args: argparse.Namespace) -> None:
         script, *script_args = task["reference"].split()  # e.g. "reference_designs/rothemund.py rect"
         proc = subprocess.run([sys.executable, str(ROOT / script), *script_args, str(final / "design.sc")],
                               capture_output=True, text=True, cwd=ROOT / Path(script).parent)
-        info = {"task": task_id, "model": "reference", "seed": 0, "termination": "reference",
-                "build_log": proc.stdout + proc.stderr}
-        info["grade"] = grade(run_dir, task, oxdna, exp.get("evaluation", {}))
-        (run_dir / "result.json").write_text(json.dumps(info, indent=1, default=str))
-        _figures(run_dir, task, "reference")
-        print(f"[ref ] {task_id}: overall={info['grade']['overall']} valid={info['grade']['valid']}")
+        todo.append((run_dir, {"task": task_id, "model": "reference", "seed": 0, "termination": "reference",
+                               "build_log": proc.stdout + proc.stderr}, task))
+    _grade_all(exp, oxdna, todo, False, "ref ")
 
 
 def main() -> None:
@@ -357,8 +385,8 @@ def main() -> None:
     e.add_argument("--force", action="store_true", help="re-grade runs that already have result.json")
     e.add_argument("--reanalyze", action="store_true",
                    help="recompute metrics from existing grading simulations instead of re-simulating")
-    e.add_argument("--parallel", type=int, default=1,
-                   help="runs graded at once; useful with mode: modal (simulations capped by modal.max_parallel)")
+    e.add_argument("--parallel", type=int,
+                   help="mode: modal only: GPUs at once (overrides modal.max_parallel); runs always share them")
     e.set_defaults(func=cmd_evaluate)
 
     b = sub.add_parser("baseline", help="grade reference designs as a positive control")

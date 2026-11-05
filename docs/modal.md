@@ -12,8 +12,11 @@ with `scripts/modal_smoke.py --seeds 3` after redeploying.
 ```
 local (synbio-bench evaluate)                         Modal
 -----------------------------                         -----
-simulate_many(): the seeds of a design, in groups of
-  modal.sims_per_gpu (3); each group moves through the stages together
+evaluate / baseline pool every run's simulations;
+simulate_many() sorts them by design size and groups them
+  modal.sims_per_gpu (3) at a time, so different designs of
+  similar size share a GPU; each group moves through the
+  stages together; each run is saved when its seeds finish
   for each stage (relax_mc, relax_md[, relax_md_k], prod):
     send each sim's stage files     ──────────────►  run_stages_cpu (relax_mc: oxDNA's MC is CPU-only;
     (input, topology, start conf, .op)                  the group runs side by side on 2 cores)
@@ -35,8 +38,10 @@ analysis, scoring and figures (all local, unchanged)
   `NATIVE_COMPILATION=OFF`, so it builds without a GPU and runs on any Modal GPU and host CPU.
 - Outputs go through a Volume (`synbio-oxdna-runs`) because production trajectories can be roughly 100–200 MB
   for a full-M13 design. Each job's folder is deleted after download.
-- Up to `modal.max_parallel` groups (default 4) run at once, each on its own GPU. `synbio-bench evaluate
-  --parallel N` grades N runs at once. Locally, everything stays one at a time as before.
+- Up to `modal.max_parallel` groups (default 4) run at once, each on its own GPU (`evaluate --parallel N`
+  overrides it). Locally, everything stays one at a time as before.
+- `evaluate` and `baseline` pool all the runs they grade. `run` without `--no-eval` grades each run as its
+  agent finishes, so only that run's seeds can share a GPU: on Modal, prefer `run --no-eval` then `evaluate`.
 - When Modal is unavailable (not installed, not logged in, or not deployed), `ModalUnavailable` is raised. That stops the
   evaluation instead of recording a failed simulation, so the run stays ungraded and can be retried.
 
@@ -62,7 +67,8 @@ analysis, scoring and figures (all local, unchanged)
    ```
 5. Grade with it:
    ```bash
-   OXDNA_MODE=modal uv run synbio-bench --experiment configs/origami-trio.yaml evaluate --parallel 4
+   uv run synbio-bench --experiment configs/origami-trio.yaml run --no-eval --parallel 4   # agents only
+   OXDNA_MODE=modal uv run synbio-bench --experiment configs/origami-trio.yaml evaluate     # all runs share GPUs
    ```
    Alternatively, set `runner.mode: modal` in `configs/oxdna.yaml`.
 
