@@ -24,11 +24,13 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import os
+import threading
 import statistics
 import subprocess
 import sys
 import time
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 from pathlib import Path
 from typing import Any
 
@@ -196,6 +198,11 @@ def relax(name: str, cfg: OxDNAConfig, out: Path) -> tuple[Path, int]:
     return work, r["export"]["n_nucleotides"]
 
 
+# Modal calls in flight, so Ctrl+C can cancel them (key: "design on gpu").
+ACTIVE_CALLS: dict[str, Any] = {}
+_ACTIVE_LOCK = threading.Lock()
+
+
 class NoResult(RuntimeError):
     """A container call gave no result in time (usually: no GPU of that type was free) and was cancelled."""
 
@@ -211,6 +218,9 @@ def call_bench(gpu: str, files: dict[str, bytes], variants: list[dict], timeout_
         fn = fn.with_options(gpu=gpu)
     payload = [{k: v[k] for k in ("name", "inputs", "mps")} for v in variants]
     call = fn.spawn(files, payload, timeout_s)
+    key = f"{id(call)}"
+    with _ACTIVE_LOCK:
+        ACTIVE_CALLS[key] = call
     try:
         return call.get(timeout=wait_s)
     except Exception as e:  # noqa: BLE001
@@ -221,6 +231,20 @@ def call_bench(gpu: str, files: dict[str, bytes], variants: list[dict], timeout_
                 pass
             raise NoResult(f"no result after {wait_s / 60:.0f} min (no {gpu} free?); call cancelled") from e
         raise
+    finally:
+        with _ACTIVE_LOCK:
+            ACTIVE_CALLS.pop(key, None)
+
+
+def cancel_active() -> int:
+    with _ACTIVE_LOCK:
+        calls = list(ACTIVE_CALLS.values())
+    for call in calls:
+        try:
+            call.cancel()
+        except Exception:  # noqa: BLE001
+            pass
+    return len(calls)
 
 
 def load_previous(out: Path, steps: int) -> list[dict]:
@@ -336,12 +360,26 @@ def main() -> None:
         print(f"[bench] {design} on {gpu} ({res.get('gpu')}): {round(time.time() - t0)} s", flush=True)
         return {**entry, "result": res}
 
-    # Results are saved after every container, so stopping early (Ctrl+C) keeps what has finished.
-    with ThreadPoolExecutor(max_workers=args.parallel) as pool:
-        futures = [pool.submit(run_pair, pr) for pr in pairs]
-        for f in as_completed(futures):
-            raw.append(f.result())
+    # Results are saved after every container, so stopping early keeps what has finished. The main thread
+    # polls (rather than blocking on the pool) so Ctrl+C works on Windows too; it cancels the Modal calls
+    # still running and exits without waiting for their threads.
+    pool = ThreadPoolExecutor(max_workers=args.parallel)
+    pending = {pool.submit(run_pair, pr) for pr in pairs}
+    try:
+        while pending:
+            finished, pending = wait(pending, timeout=1.0, return_when=FIRST_COMPLETED)
+            for f in finished:
+                raw.append(f.result())
+                save(out, args.steps, raw)
+    except KeyboardInterrupt:
+        n = cancel_active()
+        if raw:
             save(out, args.steps, raw)
+        print(f"\n[stop ] cancelled {n} Modal call(s); {len(raw)} finished container(s) saved in {out}. "
+              f"Rerun the same command to resume.", flush=True)
+        pool.shutdown(wait=False, cancel_futures=True)
+        os._exit(130)
+    pool.shutdown()
     print(save(out, args.steps, raw))
 
 if __name__ == "__main__":
