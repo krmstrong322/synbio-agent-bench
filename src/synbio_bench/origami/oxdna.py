@@ -12,6 +12,7 @@ from __future__ import annotations
 import json
 import os
 import shutil
+import signal
 import subprocess
 import threading
 import time
@@ -269,6 +270,16 @@ def _mock_stage(work: Path, opts: dict[str, Any]) -> subprocess.CompletedProcess
     return subprocess.CompletedProcess(args=["mock"], returncode=0, stdout="mock oxDNA run\n", stderr="")
 
 
+def _signal_note(returncode: int) -> str:
+    """Negative exit codes are signals: -4 is SIGILL (binary built for a newer CPU), -9 SIGKILL (often OOM)."""
+    if returncode >= 0:
+        return ""
+    try:
+        return f" ({signal.Signals(-returncode).name})"
+    except ValueError:
+        return ""
+
+
 def _tail(text: str, n: int = 25) -> str:
     return "\n".join(text.strip().splitlines()[-n:])
 
@@ -329,7 +340,7 @@ def simulate(
             result.update(
                 ok=False,
                 failed_stage=stage,
-                error=f"oxDNA exited with code {proc.returncode}",
+                error=f"oxDNA exited with code {proc.returncode}{_signal_note(proc.returncode)}",
                 log_tail=_tail(proc.stderr or proc.stdout),
             )
             return False

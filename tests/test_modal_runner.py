@@ -127,6 +127,12 @@ def test_names_match_deployed_app():
             modal_runner.BENCH_GPU_FUNCTION, modal_runner.BENCH_CPU_FUNCTION} <= funcs
 
 
+def test_image_is_portable_across_cpus():
+    src = (ROOT / "src/synbio_bench/origami/modal_app.py").read_text()
+    assert "-DNATIVE_COMPILATION=OFF" in src  # -march=native crashed with SIGILL on Modal (exit -4)
+    assert oxdna._signal_note(-4) == " (SIGILL)" and oxdna._signal_note(1) == ""
+
+
 def test_stage_inputs_are_minimal():
     stages = build_inputs(OxDNAConfig(), "quick")
     assert modal_runner.stage_inputs(stages["relax_mc"], "input_relax_mc") == [

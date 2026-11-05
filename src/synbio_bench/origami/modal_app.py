@@ -44,12 +44,15 @@ OXDNA = "/usr/local/bin/oxDNA"
 
 # CUDA_COMMON_ARCH=ON (oxDNA's default) compiles for every architecture nvcc supports, so the image builds
 # without a GPU and runs on any Modal GPU type. CUDA 12.8 is the first toolkit with Blackwell (B200).
+# NATIVE_COMPILATION=OFF: oxDNA defaults to -march=native, which tunes the binary to the image-build machine's
+# CPU and crashes with SIGILL (exit -4) on Modal hosts with older CPUs.
 image = (
     modal.Image.from_registry("nvidia/cuda:12.8.1-devel-ubuntu24.04", add_python="3.12")
     .apt_install("build-essential", "cmake", "git")
     .run_commands(
         f"git clone --depth 1 --branch {OXDNA_REF} https://github.com/lorenzo-rovigatti/oxDNA.git /opt/oxDNA",
-        "cmake -S /opt/oxDNA -B /opt/oxDNA/build -DCMAKE_BUILD_TYPE=Release -DCUDA=ON -DCUDA_COMMON_ARCH=ON",
+        "cmake -S /opt/oxDNA -B /opt/oxDNA/build -DCMAKE_BUILD_TYPE=Release -DCUDA=ON -DCUDA_COMMON_ARCH=ON"
+        " -DNATIVE_COMPILATION=OFF",
         "cmake --build /opt/oxDNA/build --target oxDNA -j 8",
         f"install -m 755 /opt/oxDNA/build/bin/oxDNA {OXDNA}",
     )

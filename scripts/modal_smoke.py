@@ -35,6 +35,8 @@ def summary(r: dict) -> dict:
     return {
         "ok": r.get("ok"),
         "error": r.get("error"),
+        "failed_stage": r.get("failed_stage"),
+        "log_tail": r.get("log_tail"),
         "stage_seconds": r.get("stage_seconds"),
         "bp_fraction": m.get("bp_fraction_mean"),
         "rmsf_nm": m.get("rmsf_mean_nm"),
