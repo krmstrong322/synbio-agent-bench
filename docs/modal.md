@@ -106,7 +106,7 @@ per simulation. Running several seeds on one GPU is the bigger lever. Confirm bo
       seed within seed noise.
 - [ ] Record the oxDNA version on the local WSL build. It tracks master, while Modal is pinned to v3.7.0. Rerun the
       reference designs on Modal before mixing local and Modal grades in one comparison.
-- [ ] Run `scripts/modal_gpu_benchmark.py` (below), then set the default GPU, `verlet_skin` and
+- [ ] Run `scripts/modal_gpu_benchmark.py` (below; it saves after each container, so rerunning resumes), then set the default GPU, `verlet_skin` and
       simulations per GPU from its `summary.md`.
 - [ ] Check Modal's usage page after the smoke test, and compare it with the stage times in `log_*.txt`
       (`remote_seconds`).

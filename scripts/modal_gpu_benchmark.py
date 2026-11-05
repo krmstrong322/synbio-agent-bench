@@ -28,7 +28,7 @@ import statistics
 import subprocess
 import sys
 import time
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import Any
 
@@ -92,7 +92,9 @@ def variants_for(cfg: OxDNAConfig, gpu: str, steps: int, skins: list[float], cop
 
 def rows_from(design: str, n_nt: int, gpu: str, steps: int, result: dict[str, Any],
               variants: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    skins = {v["name"]: v["skin"] for v in variants}
+    skins = {v["name"]: v["skin"] for v in variants}  # names look like "skin0.2-x3-mps"
+    for v in result["variants"]:
+        skins.setdefault(v["name"], float(v["name"].split("-")[0].removeprefix("skin")))
     rows = []
     for v in result["variants"]:
         row: dict[str, Any] = {"design": design, "n_nt": n_nt, "gpu": gpu, "gpu_name": result.get("gpu"),
@@ -151,7 +153,7 @@ def summary_md(rows: list[dict[str, Any]], spent: float | None) -> str:
                   "|---|---|---|---|---|---|---|---|---|---|"]
         for r in sorted(rs, key=lambda r: r.get("usd_per_seed_shape") or float("inf")):
             note = (r.get("note") or "").splitlines()[0][:60] if r.get("note") else ""
-            lines.append(f"| {r['gpu']} | {r['skin']} | {r['copies']} | {'yes' if r['mps'] else ''} | "
+            lines.append(f"| {r['gpu']} | {r.get('skin', '–')} | {r.get('copies', '–')} | {'yes' if r.get('mps') else ''} | "
                          f"{r.get('per_step_ms', '–')} | {r.get('sims_per_hour_shape', '–')} | "
                          f"{r.get('usd_per_seed_shape', '–')} | {r.get('usd_per_seed_standard', '–')} | "
                          f"{r.get('e_pot_mean', '–')} | {note} |")
@@ -194,8 +196,13 @@ def relax(name: str, cfg: OxDNAConfig, out: Path) -> tuple[Path, int]:
     return work, r["export"]["n_nucleotides"]
 
 
+class NoResult(RuntimeError):
+    """A container call gave no result in time (usually: no GPU of that type was free) and was cancelled."""
+
+
 def call_bench(gpu: str, files: dict[str, bytes], variants: list[dict], timeout_s: int,
-               environment: str | None) -> dict:
+               environment: str | None, wait_s: float) -> dict:
+    """Run one container's variants. Gives up (and cancels the call) after wait_s, including GPU queueing."""
     modal = mr._modal()
     if gpu == "CPU":
         fn = modal.Function.from_name(mr.APP_NAME, mr.BENCH_CPU_FUNCTION, environment_name=environment)
@@ -203,7 +210,55 @@ def call_bench(gpu: str, files: dict[str, bytes], variants: list[dict], timeout_
         fn = modal.Function.from_name(mr.APP_NAME, mr.BENCH_GPU_FUNCTION, environment_name=environment)
         fn = fn.with_options(gpu=gpu)
     payload = [{k: v[k] for k in ("name", "inputs", "mps")} for v in variants]
-    return fn.remote(files, payload, timeout_s)
+    call = fn.spawn(files, payload, timeout_s)
+    try:
+        return call.get(timeout=wait_s)
+    except Exception as e:  # noqa: BLE001
+        if isinstance(e, TimeoutError) or mr._is_timeout(e):
+            try:
+                call.cancel()
+            except Exception:  # noqa: BLE001
+                pass
+            raise NoResult(f"no result after {wait_s / 60:.0f} min (no {gpu} free?); call cancelled") from e
+        raise
+
+
+def load_previous(out: Path, steps: int) -> list[dict]:
+    """Successful (design, GPU) results from an earlier run with the same step count."""
+    path = out / "results.json"
+    if not path.exists():
+        return []
+    prev = json.loads(path.read_text())
+    if prev.get("steps") != steps:
+        print(f"[note] ignoring {path}: it used {prev.get('steps')} steps, this run uses {steps}")
+        return []
+    return [r for r in prev.get("raw", []) if "result" in r]
+
+
+def rows_for(raw: list[dict]) -> list[dict]:
+    rows = []
+    for r in raw:
+        if "result" in r:
+            rows += rows_from(r["design"], r["n_nt"], r["gpu"], r["steps"], r["result"], [])
+        else:
+            rows.append({"design": r["design"], "n_nt": r["n_nt"], "gpu": r["gpu"], "ok": False, "note": r["error"]})
+    return rows
+
+
+def save(out: Path, steps: int, raw: list[dict]) -> str:
+    rows = rows_for(raw)
+    spent = sum(r["result"]["container_s"] * price_per_s(r["gpu"]) for r in raw if "result" in r)
+    out.mkdir(parents=True, exist_ok=True)
+    (out / "results.json").write_text(json.dumps({"prices_as_of": mr.PRICES_AS_OF, "steps": steps,
+                                                  "raw": raw, "rows": rows}, indent=1))
+    with open(out / "results.csv", "w", newline="") as f:
+        keys = list(dict.fromkeys(k for r in rows for k in r))
+        w = csv.DictWriter(f, fieldnames=keys)
+        w.writeheader()
+        w.writerows(rows)
+    md = summary_md(rows, spent)
+    (out / "summary.md").write_text(md)
+    return md
 
 
 def main() -> None:
@@ -216,7 +271,10 @@ def main() -> None:
     p.add_argument("--steps", type=int, default=30_000, help="MD steps per timed run (CPU runs use a tenth)")
     p.add_argument("--cpu-max-nt", type=int, default=5000, help="skip CPU runs for designs larger than this")
     p.add_argument("--timeout", type=int, default=1800, help="seconds per variant")
+    p.add_argument("--wait", type=float, default=30, help="minutes to wait for one container's result, including "
+                                                          "time queued for a GPU; then it is cancelled")
     p.add_argument("--parallel", type=int, default=3, help="containers at once")
+    p.add_argument("--fresh", action="store_true", help="ignore earlier results in --out and rerun everything")
     p.add_argument("--assume-ms", type=float, default=1.5, help="ms/step assumed for the --dry-run cost ceiling")
     p.add_argument("--out", default=str(ROOT / "runs" / "_bench" / "modal-gpu"))
     p.add_argument("--dry-run", action="store_true", help="print the matrix and a cost ceiling; call nothing")
@@ -237,53 +295,54 @@ def main() -> None:
         return args.steps // 10 if gpu == "CPU" else args.steps
 
     pairs = [(d, g) for d in designs for g in gpus if not (g == "CPU" and DESIGNS[d][2] > args.cpu_max_nt)]
+    raw = [] if args.fresh else load_previous(out, args.steps)
+    done = {(r["design"], r["gpu"]) for r in raw}
+    if done & set(pairs):
+        print(f"[resume] {len(done & set(pairs))} design/GPU pairs already done in {out} "
+              f"(--fresh to rerun): {', '.join(f'{d} on {g}' for d, g in pairs if (d, g) in done)}")
+    pairs = [pr for pr in pairs if pr not in done]
     variants_by_gpu = {g: variants_for(cfg, g, steps_for(g), skins, copies, args.mps) for g in gpus}
-    print(f"{len(pairs)} container calls ({len(designs)} designs x {len(gpus)} GPUs), "
-          f"{len(variants_by_gpu[gpus[0]])} variants each: "
+    print(f"{len(pairs)} container calls to make, {len(variants_by_gpu[gpus[0]])} variants each: "
           + ", ".join(v["name"] for v in variants_by_gpu[gpus[0]]))
     calls_by_gpu = {g: sum(1 for _, gg in pairs if gg == g) for g in gpus}
     print(f"cost ceiling ~${ceiling_usd(calls_by_gpu, variants_by_gpu, args.steps, args.assume_ms, len(designs)):.2f} "
           f"(assumes {args.assume_ms} ms/step, no gain from sharing a GPU; prices {mr.PRICES_AS_OF})")
-    if args.dry_run:
+    if args.dry_run or not pairs:
+        if not args.dry_run and raw:
+            print(save(out, args.steps, raw))
         return
 
     relaxed = {}
-    for d in designs:
+    for d in dict.fromkeys(d for d, _ in pairs):
         try:
             relaxed[d] = relax(d, cfg, out)
         except mr.ModalUnavailable as e:
             raise SystemExit(f"Modal is not ready: {e}") from e
 
-    def run_pair(pair: tuple[str, str]) -> list[dict]:
+    def run_pair(pair: tuple[str, str]) -> dict:
         design, gpu = pair
         work, n_nt = relaxed[design]
-        vs = variants_by_gpu[gpu]
+        entry: dict[str, Any] = {"design": design, "gpu": gpu, "n_nt": n_nt, "steps": steps_for(gpu)}
         names = [n for n in mr.stage_inputs(timed_opts(cfg, 1, 0.5, 1, gpu == "CPU"), "input") if n != "input"]
         files = {n: (work / n).read_bytes() for n in names}
         print(f"[bench] {design} on {gpu} ...", flush=True)
         t0 = time.time()
-        res = call_bench(gpu, files, vs, args.timeout, mr.settings(cfg)["environment"])
+        try:
+            res = call_bench(gpu, files, variants_by_gpu[gpu], args.timeout, mr.settings(cfg)["environment"],
+                             args.wait * 60)
+        except Exception as e:  # noqa: BLE001 - one bad container must not lose the others' results
+            print(f"[fail ] {design} on {gpu}: {type(e).__name__}: {e}", flush=True)
+            return {**entry, "error": f"{type(e).__name__}: {e}"}
         print(f"[bench] {design} on {gpu} ({res.get('gpu')}): {round(time.time() - t0)} s", flush=True)
-        raw.append({"design": design, "gpu": gpu, "n_nt": n_nt, "result": res})
-        return rows_from(design, n_nt, gpu, steps_for(gpu), res, vs)
+        return {**entry, "result": res}
 
-    raw: list[dict] = []
+    # Results are saved after every container, so stopping early (Ctrl+C) keeps what has finished.
     with ThreadPoolExecutor(max_workers=args.parallel) as pool:
-        rows = [row for rs in pool.map(run_pair, pairs) for row in rs]
-
-    spent = sum(r["result"]["container_s"] * price_per_s(r["gpu"]) for r in raw)
-    out.mkdir(parents=True, exist_ok=True)
-    (out / "results.json").write_text(json.dumps({"prices_as_of": mr.PRICES_AS_OF, "steps": args.steps,
-                                                  "raw": raw, "rows": rows}, indent=1))
-    with open(out / "results.csv", "w", newline="") as f:
-        keys = list(dict.fromkeys(k for r in rows for k in r))
-        w = csv.DictWriter(f, fieldnames=keys)
-        w.writeheader()
-        w.writerows(rows)
-    md = summary_md(rows, spent)
-    (out / "summary.md").write_text(md)
-    print(md)
-
+        futures = [pool.submit(run_pair, pr) for pr in pairs]
+        for f in as_completed(futures):
+            raw.append(f.result())
+            save(out, args.steps, raw)
+    print(save(out, args.steps, raw))
 
 if __name__ == "__main__":
     main()

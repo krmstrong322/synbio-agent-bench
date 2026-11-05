@@ -312,28 +312,42 @@ def test_container_side_bench(tmp_path, monkeypatch):
 
 
 def test_bench_script_end_to_end(tmp_path, monkeypatch, fake_modal):
-    """main(): relax on (fake) Modal, ship the relaxed files, write results.json/csv and summary.md."""
+    """main(): relax on (fake) Modal, save after each container, survive a GPU that never comes, resume."""
     b = load_bench_script()
-    seen = {}
+    seen: dict = {"calls": []}
 
-    def fake_call(gpu, files, variants, timeout_s, environment):
+    def fake_call(gpu, files, variants, timeout_s, environment, wait_s):
         seen["files"] = sorted(files)
-        return {"gpu": "Tesla T4", "container_s": 12.0, "variants": [
+        seen["calls"].append(gpu)
+        if gpu == "L4" and not seen.get("l4_free"):
+            raise b.NoResult("no result after 30 min (no L4 free?); call cancelled")
+        return {"gpu": f"Fake {gpu}", "container_s": 12.0, "variants": [
             {"name": v["name"], "copies": len(v["inputs"]), "mps": v["mps"], "wall_s": 5.0,
              "runs": [{"returncode": 0, "timed_out": False, "per_step_ms": 0.2,
                        "last_energy": "30000 -1.41 0.1 -1.3"}] * len(v["inputs"])} for v in variants]}
 
     monkeypatch.setattr(b, "call_bench", fake_call)
     out = tmp_path / "bench"
-    monkeypatch.setattr(sys, "argv", ["bench", "--design", "tetrahedron", "--gpu", "T4", "--skin", "0.2",
-                                      "--copies", "1", "--copies", "2", "--out", str(out)])
+    argv = ["bench", "--design", "tetrahedron", "--gpu", "T4", "--gpu", "L4", "--skin", "0.2",
+            "--copies", "1", "--copies", "2", "--out", str(out)]
+    monkeypatch.setattr(sys, "argv", argv)
     b.main()
     assert seen["files"] == ["designed_pairs.op", "initial.top", "relaxed.dat"]
     rows = json.loads((out / "results.json").read_text())["rows"]
-    assert [(r["copies"], r["ok"]) for r in rows] == [(1, True), (2, True)]
-    assert rows[0]["n_nt"] == 2088 == b.DESIGNS["tetrahedron"][2]
-    assert "Cheapest: **T4**, skin 0.2, 2 per GPU" in (out / "summary.md").read_text()
+    t4 = [r for r in rows if r["gpu"] == "T4"]
+    assert [(r["copies"], r["ok"], r["skin"]) for r in t4] == [(1, True, 0.2), (2, True, 0.2)]
+    assert t4[0]["n_nt"] == 2088 == b.DESIGNS["tetrahedron"][2]
+    l4 = [r for r in rows if r["gpu"] == "L4"]
+    assert len(l4) == 1 and not l4[0]["ok"] and "no L4 free" in l4[0]["note"]
+    summary = (out / "summary.md").read_text()
+    assert "Cheapest: **T4**, skin 0.2, 2 per GPU" in summary and "no L4 free" in summary
     assert (out / "results.csv").read_text().startswith("design,")
-    calls = len(fake_modal.calls)
-    b.main()  # relaxation is cached
-    assert len(fake_modal.calls) == calls
+
+    # Rerun: T4 is kept, only the failed L4 pair is retried, relaxation is cached.
+    relax_calls = len(fake_modal.calls)
+    seen.update(calls=[], l4_free=True)
+    b.main()
+    assert seen["calls"] == ["L4"]
+    assert len(fake_modal.calls) == relax_calls
+    rows = json.loads((out / "results.json").read_text())["rows"]
+    assert {(r["gpu"], r["copies"]) for r in rows if r["ok"]} == {("T4", 1), ("T4", 2), ("L4", 1), ("L4", 2)}
