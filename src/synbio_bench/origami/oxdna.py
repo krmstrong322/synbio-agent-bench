@@ -52,6 +52,10 @@ class OxDNAConfig:
     use_average_seq: bool = True
     seq_dep_file: str | None = None
     timeout_s: int = 3600
+    # Neighbour-list margin (oxDNA length units, ~0.85 nm). Speed only: every interacting pair is always on the
+    # list, but trajectories diverge numerically like a new seed. oxDNA suggests 0.05-0.2; 0.1 was 10-17% faster
+    # than 0.5 in the Modal benchmark (docs/modal.md).
+    verlet_skin: float = 0.5
     modal: dict[str, Any] = field(default_factory=dict)  # mode: modal settings; see modal_runner.DEFAULTS
     protocols: dict[str, dict[str, float]] = field(
         default_factory=lambda: {
@@ -135,7 +139,7 @@ def _common(cfg: OxDNAConfig, seed: int) -> dict[str, Any]:
         "time_scale": "linear",
         "restart_step_counter": 1,
         "seed": seed,
-        "verlet_skin": 0.5,
+        "verlet_skin": cfg.verlet_skin,
         "use_average_seq": int(cfg.use_average_seq),
         "max_io": 50,  # MB/s; oxDNA's 1 MB/s default aborts full-M13 designs (~14k nt) mid-run
     }
@@ -462,7 +466,8 @@ def _simulate_group(jobs: list[SimJob], cfg: OxDNAConfig, protocol: str, reanaly
         if work.exists():
             shutil.rmtree(work)
         work.mkdir(parents=True)
-        result: dict[str, Any] = {"protocol": protocol, "seed": job.seed, "runner": cfg.mode, "work_dir": str(work)}
+        result: dict[str, Any] = {"protocol": protocol, "seed": job.seed, "runner": cfg.mode,
+                                  "verlet_skin": cfg.verlet_skin, "work_dir": str(work)}
         if cfg.mode == "mock":
             result["WARNING"] = "mock oxDNA runner: metrics are synthetic and do not reflect real physics"
         sim = _Sim(job, work, result)
@@ -521,13 +526,15 @@ def _simulate_group(jobs: list[SimJob], cfg: OxDNAConfig, protocol: str, reanaly
 
 
 def config_from_env(cfg: OxDNAConfig) -> OxDNAConfig:
-    """Let OXDNA_MODE / OXDNA_EXECUTABLE / OXDNA_BACKEND / OXDNA_MODAL_GPU override the config file."""
+    """Let OXDNA_MODE / OXDNA_EXECUTABLE / OXDNA_BACKEND / OXDNA_MODAL_GPU / OXDNA_VERLET_SKIN override the config."""
     if m := os.environ.get("OXDNA_MODE"):
         cfg.mode = m
     if exe := os.environ.get("OXDNA_EXECUTABLE"):
         cfg.executable = exe
     if b := os.environ.get("OXDNA_BACKEND"):
         cfg.backend = b
+    if v := os.environ.get("OXDNA_VERLET_SKIN"):
+        cfg.verlet_skin = float(v)
     if g := os.environ.get("OXDNA_MODAL_GPU"):
         cfg.modal = {**cfg.modal, "gpu": g}
     return cfg

@@ -172,6 +172,7 @@ def _score(sub: Submission, prep: dict[str, Any], sims: list[dict[str, Any]], ox
         "initial_stretched_bonds": sims[0]["initial_backbone"]["num_stretched_bonds"] if sims and "initial_backbone" in sims[0] else None,
         "sim_runner": oxdna.mode,
         "protocol": protocol,
+        "verlet_skin": oxdna.verlet_skin,
         "seeds": list(seeds),
         "sims_sharing_gpu": [1 + s.get("shared_gpu_with", 0) for s in sims],  # per seed, 1 = had a GPU to itself
     }

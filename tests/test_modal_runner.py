@@ -19,6 +19,7 @@ import time
 from pathlib import Path
 
 import pytest
+import yaml
 
 from synbio_bench.origami import modal_runner, oxdna
 from synbio_bench.origami.oxdna import OxDNAConfig, build_inputs, simulate
@@ -487,3 +488,17 @@ def test_runner_grades_runs_together_and_saves_each(tmp_path, monkeypatch, fake_
         grade = json.loads((run_dir / "result.json").read_text())["grade"]
         assert grade["valid"] and grade["sims_sharing_gpu"] == [2]
     assert ("input_prod", True, 2) in fake_modal.batches
+
+
+def test_verlet_skin_setting(tmp_path, monkeypatch):
+    cfg = OxDNAConfig.from_dict(yaml.safe_load((ROOT / "configs/oxdna.yaml").read_text()))
+    assert cfg.verlet_skin == 0.5  # unchanged default until re-grading confirms 0.1
+    cfg.verlet_skin = 0.1
+    assert all(opts["verlet_skin"] == 0.1 for opts in build_inputs(cfg, "shape").values())
+    monkeypatch.setenv("OXDNA_VERLET_SKIN", "0.2")
+    assert oxdna.config_from_env(OxDNAConfig()).verlet_skin == 0.2
+    g = evaluate_submission(build_reference(tmp_path), HB6_SPEC, OxDNAConfig(mode="mock", verlet_skin=0.1),
+                            tmp_path / "eval", protocol="quick")
+    assert g["verlet_skin"] == 0.1
+    assert "verlet_skin = 0.1" in (tmp_path / "eval/seed_1/input_prod").read_text()
+    assert json.loads((tmp_path / "eval/seed_1/result.json").read_text())["verlet_skin"] == 0.1

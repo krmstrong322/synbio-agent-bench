@@ -3,7 +3,7 @@
 #   mode: local -> runs `executable` directly (Linux/macOS, or a native build)
 #   mode: modal -> runs each stage on a Modal cloud GPU (see docs/modal.md; deploy src/synbio_bench/origami/modal_app.py first)
 #   mode: mock  -> fake stable trajectories, for testing the harness only (flagged in all results)
-# Env overrides: OXDNA_MODE, OXDNA_EXECUTABLE, OXDNA_BACKEND, OXDNA_MODAL_GPU
+# Env overrides: OXDNA_MODE, OXDNA_EXECUTABLE, OXDNA_BACKEND, OXDNA_MODAL_GPU, OXDNA_VERLET_SKIN
 runner:
   mode: wsl
   executable: /usr/local/bin/oxDNA
@@ -20,6 +20,7 @@ interaction_type: DNA2
 temperature: 25C
 salt_concentration: 1.0
 use_average_seq: true
+verlet_skin: 0.5         # neighbour-list margin: speed only (0.1 benchmarked 10-17% faster); env OXDNA_VERLET_SKIN
 timeout_s: 7200
 protocols:
   quick:     # fast checks during development

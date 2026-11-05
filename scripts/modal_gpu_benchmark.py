@@ -289,7 +289,7 @@ def main() -> None:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--design", action="append", choices=list(DESIGNS), help="default: all three")
     p.add_argument("--gpu", action="append", help="Modal GPU type (repeatable), or CPU; default: T4, L4, A10G")
-    p.add_argument("--skin", action="append", type=float, help="verlet_skin values; default: 0.5 (current), 0.2, 0.1")
+    p.add_argument("--skin", action="append", type=float, help="verlet_skin values; default: 0.5, 0.2, 0.1")
     p.add_argument("--copies", action="append", type=int, help="simulations per GPU; default: 1 and 3")
     p.add_argument("--mps", action="store_true", help="also try NVIDIA MPS for copies > 1")
     p.add_argument("--steps", type=int, default=30_000, help="MD steps per timed run (CPU runs use a tenth)")
