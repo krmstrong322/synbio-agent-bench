@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import subprocess
 import sys
 import threading
@@ -397,7 +398,17 @@ def main() -> None:
     add_report_parser(sub)
 
     args = p.parse_args()
-    args.func(args)
+    try:
+        args.func(args)
+    except KeyboardInterrupt:
+        # Cancel Modal simulations still running (they would keep running and billing), then exit without
+        # waiting for worker threads. Runs graded so far are saved; rerunning resumes.
+        from .origami import modal_runner
+
+        n = modal_runner.cancel_all()
+        print(f"\n[stop] interrupted; cancelled {n} Modal call(s). Finished runs are saved; rerun to resume.",
+              flush=True)
+        os._exit(130)
 
 
 if __name__ == "__main__":

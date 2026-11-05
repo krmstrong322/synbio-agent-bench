@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import re
 import subprocess
+import threading
 import uuid
 from pathlib import Path
 from typing import Any, Callable
@@ -88,13 +89,42 @@ def _modal():
     return modal
 
 
+# Modal calls in flight, so an interrupted evaluation can cancel them (they would otherwise keep running, billed).
+_ACTIVE: dict[int, Any] = {}
+_ACTIVE_LOCK = threading.Lock()
+
+
+def cancel_all() -> int:
+    """Cancel every Modal call this process still has running. Returns how many were cancelled."""
+    with _ACTIVE_LOCK:
+        calls = list(_ACTIVE.values())
+        _ACTIVE.clear()
+    for call in calls:
+        try:
+            call.cancel()
+        except Exception:  # noqa: BLE001
+            pass
+    return len(calls)
+
+
 def _function(s: dict[str, Any], gpu: bool) -> Callable[..., dict]:
     modal = _modal()
     fn = modal.Function.from_name(s["app"], GPU_FUNCTION if gpu else CPU_FUNCTION,
                                   environment_name=s["environment"])
     if gpu and s["gpu"]:
         fn = fn.with_options(gpu=s["gpu"])
-    return fn.remote
+
+    def call(*args: Any) -> dict:
+        fc = fn.spawn(*args)
+        with _ACTIVE_LOCK:
+            _ACTIVE[id(fc)] = fc
+        try:
+            return fc.get()
+        finally:
+            with _ACTIVE_LOCK:
+                _ACTIVE.pop(id(fc), None)
+
+    return call
 
 
 def _volume(s: dict[str, Any]) -> Any:

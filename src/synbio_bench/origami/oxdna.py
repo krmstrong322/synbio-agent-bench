@@ -16,7 +16,7 @@ import signal
 import subprocess
 import threading
 import time
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 from dataclasses import dataclass, field
 from pathlib import Path, PureWindowsPath
 from typing import Any, Callable
@@ -363,9 +363,18 @@ def simulate_many(jobs: list[SimJob], cfg: OxDNAConfig, protocol: str = "quick",
         for g in groups:
             run(g)
     else:
-        with ThreadPoolExecutor(max_workers=min(len(groups), cfg.max_parallel)) as pool:
-            for f in [pool.submit(run, g) for g in groups]:
-                f.result()
+        # Poll rather than block, so Ctrl+C reaches this thread on Windows too.
+        pool = ThreadPoolExecutor(max_workers=min(len(groups), cfg.max_parallel))
+        pending = {pool.submit(run, g) for g in groups}
+        try:
+            while pending:
+                done, pending = wait(pending, timeout=1.0, return_when=FIRST_COMPLETED)
+                for f in done:
+                    f.result()
+        except BaseException:
+            pool.shutdown(wait=False, cancel_futures=True)
+            raise
+        pool.shutdown()
     return results
 
 
@@ -392,15 +401,29 @@ def _run_stages(cfg: OxDNAConfig, items: list[tuple[Path, str, dict[str, Any]]])
     return out
 
 
+def _label(job: SimJob) -> str:
+    """Short name for progress lines: task/model/rep#seed for benchmark runs, else the work dir's name."""
+    parts = Path(job.out_dir).parts
+    if "eval" in parts:
+        i = len(parts) - 1 - parts[::-1].index("eval")
+        return "/".join(parts[max(0, i - 3):i]) + f"#{job.seed}"
+    return f"{Path(job.out_dir).name}#{job.seed}"
+
+
 def _stage(cfg: OxDNAConfig, sims: list[_Sim], stage: str, opts_of: dict[int, dict[str, Any]]) -> None:
     """Run `stage` for the given sims together; a sim that fails is marked dead with the error recorded."""
     items = []
     for sim in sims:
         write_input(sim.work / f"input_{stage}", opts_of[id(sim)])
         items.append((sim.work, f"input_{stage}", opts_of[id(sim)]))
+    labels = ", ".join(_label(sim.job) for sim in sims)
+    if cfg.mode != "mock":
+        print(f"[sim ] {stage:<10} start  {len(sims)} sim(s): {labels}", flush=True)
     t0 = time.time()
     results = _run_stages(cfg, items)
     seconds = round(time.time() - t0, 1)
+    if cfg.mode != "mock":
+        print(f"[sim ] {stage:<10} done   {seconds:>6.0f} s: {labels}", flush=True)
     for sim, proc in zip(sims, results):
         opts = opts_of[id(sim)]
         if isinstance(proc, subprocess.TimeoutExpired):
