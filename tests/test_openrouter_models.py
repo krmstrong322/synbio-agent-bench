@@ -37,8 +37,16 @@ def test_entry_prices_and_limits():
 
     _, warnings = orm.entry_for(record(tools=False))
     assert any("tool calling" in w for w in warnings)
-    _, warnings = orm.entry_for(record(pricing={"prompt": "0.000001", "completion": "0.000002", "overrides": [{}]}))
+    _, warnings = orm.entry_for(record(pricing={"prompt": "0.000001", "completion": "0.000002",
+                                                "overrides": [{"utc_days": ["monday"], "prompt": "0.000002"}]}))
     assert any("time of day" in w for w in warnings)
+    entry, warnings = orm.entry_for(record(pricing={
+        "prompt": "0.000002", "completion": "0.00001", "input_cache_read": "0.0000001",
+        "overrides": [{"min_prompt_tokens": 272000, "prompt": "0.000004", "completion": "0.000015",
+                       "input_cache_read": "0.0000002", "input_cache_write": "0.000005"}]}))
+    assert entry["price_per_mtok"]["long_prompt"] == {"min_prompt_tokens": 272000, "input": 4.0, "output": 15.0,
+                                                      "cache_read": 0.2, "cache_write_5m": 5.0}
+    assert any("272,000+" in w for w in warnings) and not any("time of day" in w for w in warnings)
 
 
 def test_ids():

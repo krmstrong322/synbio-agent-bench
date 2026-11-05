@@ -13,7 +13,7 @@ tasks:
   - origami-shapes/triangle-4000
   - origami/6hb-honeycomb-3k
   - origami-wireframe/tetrahedron   # graded on 3 seeds (set in the task file); the others on 1
-models: []   # fill in from the script's "models: [...]" line
+models: [kimi-k3.1-pro, glm-5.3, qwen3.8-max-0902, gpt-6.1-sol, gpt-6.1-terra, gpt-6-luna]   # via OpenRouter, default reasoning effort
 repeats: 1
 agent:       # same budget as origami-trio and wireframe-tetrahedron
   max_model_calls: 120

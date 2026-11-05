@@ -33,3 +33,33 @@ models:
   # - id: local-vllm
   #   model: openai:<served-model-name>
   #   kwargs: {base_url: "http://localhost:8000/v1", api_key: "EMPTY", use_responses_api: false}
+  # MoonshotAI: Kimi K3.1 Pro via OpenRouter; prices as of 2026-11-05
+  - id: kimi-k3.1-pro
+    model: openai:moonshotai/kimi-k3.1-pro
+    kwargs: {base_url: 'https://openrouter.ai/api/v1', api_key_env: OPENROUTER_API_KEY, use_responses_api: false, max_tokens: 64000}
+    price_per_mtok: {input: 2.0, output: 10.0, cache_read: 0.2}
+  # Z.ai: GLM 5.3 via OpenRouter; prices as of 2026-11-05
+  - id: glm-5.3
+    model: openai:z-ai/glm-5.3
+    kwargs: {base_url: 'https://openrouter.ai/api/v1', api_key_env: OPENROUTER_API_KEY, use_responses_api: false, max_tokens: 64000}
+    price_per_mtok: {input: 0.0699, output: 1.4, cache_read: 0.0689}
+  # Qwen: Qwen3.8 Max (0902) via OpenRouter; prices as of 2026-11-05
+  - id: qwen3.8-max-0902
+    model: openai:qwen/qwen3.8-max-0902
+    kwargs: {base_url: 'https://openrouter.ai/api/v1', api_key_env: OPENROUTER_API_KEY, use_responses_api: false, max_tokens: 64000}
+    price_per_mtok: {input: 2.0, output: 6.0, cache_read: 0.25}
+  # OpenAI: GPT-6.1 Sol via OpenRouter; prices as of 2026-11-05
+  - id: gpt-6.1-sol
+    model: openai:openai/gpt-6.1-sol
+    kwargs: {base_url: 'https://openrouter.ai/api/v1', api_key_env: OPENROUTER_API_KEY, use_responses_api: false, max_tokens: 64000}
+    price_per_mtok: {input: 2.0, output: 10.0, cache_read: 0.1, cache_write_5m: 2.5, long_prompt: {min_prompt_tokens: 272000, input: 4.0, output: 15.0, cache_read: 0.2, cache_write_5m: 5.0}}
+  # OpenAI: GPT-6.1 Terra via OpenRouter; prices as of 2026-11-05
+  - id: gpt-6.1-terra
+    model: openai:openai/gpt-6.1-terra
+    kwargs: {base_url: 'https://openrouter.ai/api/v1', api_key_env: OPENROUTER_API_KEY, use_responses_api: false, max_tokens: 64000}
+    price_per_mtok: {input: 1.0, output: 5.0, cache_read: 0.05, cache_write_5m: 1.25, long_prompt: {min_prompt_tokens: 272000, input: 2.0, output: 7.5, cache_read: 0.1, cache_write_5m: 2.5}}
+  # OpenAI: GPT-6 Luna via OpenRouter; prices as of 2026-11-05
+  - id: gpt-6-luna
+    model: openai:openai/gpt-6-luna
+    kwargs: {base_url: 'https://openrouter.ai/api/v1', api_key_env: OPENROUTER_API_KEY, use_responses_api: false, max_tokens: 64000}
+    price_per_mtok: {input: 0.1, output: 0.5, cache_read: 0.01, cache_write_5m: 0.125, long_prompt: {min_prompt_tokens: 272000, input: 0.2, output: 0.75, cache_read: 0.02, cache_write_5m: 0.25}}

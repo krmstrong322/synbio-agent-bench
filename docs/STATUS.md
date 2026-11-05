@@ -135,8 +135,9 @@ high cost cap as a safety net. The pilot predates this policy; rerun it before c
    oxDNA's MC needs > 0.17): re-grading origami-trio on Modal at 0.1 vs 0.5 kept every ranking, mean change -0.0015,
    largest -0.0085 (Opus triangle, one seed).
    **Next:** `configs/open-models.yaml`, open-weight frontier models plus an OpenAI model via OpenRouter on the
-   origami-trio designs and the tetrahedron (3 seeds, set in the task file). Add models with
-   `scripts/openrouter_models.py`. Modal billed $2.54 to date, about 30% over container-time estimates (image builds,
+   origami-trio designs and the tetrahedron (3 seeds, set in the task file). Models chosen 2026-11-05: Kimi K3.1 Pro,
+   GLM 5.3, Qwen3.8 Max, GPT-6.1 Sol, GPT-6.1 Terra, GPT-6 Luna (in configs/models.yaml, default reasoning effort).
+   Before running: `scripts/estimate_costs.py` replays the Claude runs' per-call token usage at each model's prices. Modal billed $2.54 to date, about 30% over container-time estimates (image builds,
    warm containers).
 2. Reference designs for the 4HB, 8-helix sheet, 12HB and the other shape tasks (positive controls). The
    star likely needs the same domain treatment as the triangle; `sharp_triangle.py` is fixed at ~4000 nt.
@@ -148,7 +149,7 @@ high cost cap as a safety net. The pilot predates this policy; rerun it before c
 
 ```bash
 uv sync
-uv run pytest                                   # 63 tests, no API keys, oxDNA or Modal needed
+uv run pytest                                   # 65 tests, no API keys, oxDNA or Modal needed
 uv run synbio-bench --experiment configs/pilot.yaml report        # rebuild the pilot report
 uv run synbio-bench --experiment configs/pilot.yaml report --embed
 ```

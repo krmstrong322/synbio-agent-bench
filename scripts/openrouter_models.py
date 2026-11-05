@@ -70,9 +70,25 @@ def entry_for(m: dict[str, Any], reasoning_effort: str | None = None) -> tuple[d
     if price["input"] is None or price["output"] is None:
         warnings.append("no usable price listed; cost estimates will be missing")
         price = {k: v for k, v in price.items() if v is not None}
-    if p.get("overrides"):
-        warnings.append("priced by time of day/week on OpenRouter; the entry uses the base rate, so estimates "
-                        "for runs in peak hours will be low")
+    for o in p.get("overrides") or []:
+        if o.get("min_prompt_tokens"):
+            # Long-prompt tier: every call whose prompt reaches min_prompt_tokens is billed at these rates.
+            # cost.py prices runs from totals and can't apply it; scripts/estimate_costs.py does, per call.
+            tier = {"min_prompt_tokens": int(o["min_prompt_tokens"]), "input": per_mtok(o.get("prompt")),
+                    "output": per_mtok(o.get("completion"))}
+            if (v := per_mtok(o.get("input_cache_read"))) is not None:
+                tier["cache_read"] = v
+            if (v := per_mtok(o.get("input_cache_write"))) is not None:
+                tier["cache_write_5m"] = v
+            price["long_prompt"] = tier
+            warnings.append(f"calls with prompts of {tier['min_prompt_tokens']:,}+ tokens cost more "
+                            f"(input ${tier['input']}/M, output ${tier['output']}/M); recorded as long_prompt")
+        elif o.get("utc_days") or "utc_start" in o:
+            if not any("time of day" in w for w in warnings):
+                warnings.append("priced by time of day/week on OpenRouter; the entry uses the base rate, so "
+                                "estimates for runs in peak hours will be low")
+        elif not any("price override" in w for w in warnings):
+            warnings.append(f"has a price override this script doesn't understand: {o}")
     if price.get("input") == 0 and price.get("output") == 0:
         warnings.append("free variant: expect tight rate limits")
     top = m.get("top_provider") or {}
