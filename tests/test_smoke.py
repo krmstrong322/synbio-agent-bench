@@ -146,3 +146,16 @@ def test_cost_estimate_is_cache_aware():
     # 100k uncached * 1.0 + 800k * 0.1 + 100k * 1.25 + 100k out * 5.0 = 0.1 + 0.08 + 0.125 + 0.5
     assert abs(c["total_usd"] - 0.805) < 1e-9
     assert estimate_cost(usage, None) is None
+
+
+def test_run_agent_end_to_end(tmp_path, monkeypatch):
+    """runner.run_agent with a scripted model: the path `synbio-bench run` takes for every model."""
+    from synbio_bench import runner
+
+    task = {"id": "origami/6hb-honeycomb", "prompt": "Design a 6HB.", "spec": HB6_SPEC}
+    monkeypatch.setattr(runner, "make_model", lambda model, **kw: ScriptedModel(script=[AIMessage("All done.")]))
+    info = runner.run_agent(task, {"id": "scripted", "model": "x:y", "price_per_mtok": {"input": 1, "output": 1}},
+                            {"max_model_calls": 5, "last_chance_calls": 1}, tmp_path / "run", seed=0)
+    assert info["model"] == "scripted" and info["termination"] == "completed"
+    assert info["submitted"] is None and info["n_model_calls"] >= 1
+    assert (tmp_path / "run" / "transcript.json").exists()

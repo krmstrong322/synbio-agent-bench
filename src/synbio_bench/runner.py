@@ -36,7 +36,8 @@ from origami_agent.tools import Workspace
 from .origami.harness import SYSTEM_PROMPT as BENCHMARK_PROMPT
 from .origami.harness import Submission, make_submit_tool
 from .origami.oxdna import OxDNAConfig, config_from_env
-from .origami.scoring import Submission, evaluate_many, evaluate_submission
+from .origami.scoring import Submission as GradeJob  # not harness.Submission (the agent's submit record)
+from .origami.scoring import evaluate_many, evaluate_submission
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -322,7 +323,7 @@ def _grade_all(exp: dict, oxdna: OxDNAConfig, items: list[tuple[Path, dict, dict
         return
     eval_cfg = exp.get("evaluation", {})
     # A task can ask for its own seeds (e.g. the wireframe tetrahedron, whose score is noisy between seeds).
-    subs = [Submission(run_dir / "workspace" / "final" / "design.sc", task["spec"], run_dir / "eval",
+    subs = [GradeJob(run_dir / "workspace" / "final" / "design.sc", task["spec"], run_dir / "eval",
                        task.get("weights") or eval_cfg.get("weights"), task.get("seeds"))
             for run_dir, _, task in items]
     if oxdna.sims_per_gpu > 1:
