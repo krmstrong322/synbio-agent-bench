@@ -231,9 +231,17 @@ def grade(run_dir: Path, task: dict, oxdna: OxDNAConfig, eval_cfg: dict, reanaly
 
 def run_one(exp: dict, task_id: str, model_cfg: dict, rep: int, oxdna: OxDNAConfig, out_root: Path, do_eval: bool) -> Path:
     run_dir = out_root / task_id.replace("/", "__") / model_cfg["id"] / f"rep{rep}"
-    if (run_dir / "result.json").exists():
-        print(f"[skip] {run_dir} already has result.json")
-        return run_dir
+    if (run_dir / "agent.json").exists():
+        done = json.loads((run_dir / "agent.json").read_text())
+        if not _infra_failure(done):
+            status = "graded" if (run_dir / "result.json").exists() else "agent done, not graded yet"
+            print(f"[skip] {task_id} | {model_cfg['id']} | rep{rep}: {status}")
+            return run_dir
+        # Keep the failed attempt for the record; the `_failed_` name keeps it out of rep* globs.
+        archive = run_dir.with_name(f"_failed_{run_dir.name}_{time.strftime('%Y%m%d-%H%M%S')}")
+        run_dir.rename(archive)
+        print(f"[redo] {task_id} | {model_cfg['id']} | rep{rep}: last attempt ended in an API error "
+              f"({str(done.get('error', ''))[:120]}); kept as {archive.name}")
     run_dir.mkdir(parents=True, exist_ok=True)
     task = load_task(task_id)
     print(f"[run ] {task_id} | {model_cfg['id']} | rep{rep}")
@@ -262,8 +270,13 @@ def _figures(run_dir: Path, task: dict, model: str) -> None:
 
 
 def _infra_failure(info: dict) -> bool:
-    """The model never answered (bad key, network, unknown model): not a result, so don't grade it."""
-    return info["termination"] == "error" and info.get("n_model_calls", 0) == 0
+    """The run was stopped by an API or provider error (bad key, network, provider fault, credit limit), not by
+    the model: not a result, so it isn't graded and `run` repeats it. This includes errors after a submission,
+    since the error may have cut the model's work short."""
+    if info.get("termination") == "error":
+        return True
+    last = info.get("last_chance") or {}
+    return last.get("termination") == "error" and not info.get("submitted")
 
 
 def _preload_providers() -> None:
@@ -430,6 +443,11 @@ def agent_costs(root: Path, model_filter: list[str] | None = None) -> str:
                          f"{(t.get('input_tokens') or 0) / 1000:.0f} ({(t.get('cache_read_tokens') or 0) / 1000:.0f}) | "
                          f"{(t.get('output_tokens') or 0) / 1000:.0f} | {'–' if c is None else f'{c:.3f}'} |")
         totals.append((model, len(runs), cost))
+    errors = [(m, r["_run"], str(r.get("error") or (r.get("last_chance") or {}).get("error") or ""))
+              for m, runs in by_model.items() for r in runs if _infra_failure(r)]
+    if errors:
+        lines += ["", "API errors (these runs are not graded; `run` repeats them):"]
+        lines += [f"- {m} {run}: {err.splitlines()[0][:300] if err else '(no message)'}" for m, run, err in errors]
     lines += ["", "| model | runs | est. cost $ |", "|---|---|---|"]
     lines += [f"| {m} | {n} | **{c:.3f}** |" for m, n, c in totals]
     lines += ["", "Estimates use configs/models.yaml prices at run time (base rates; no long-prompt or time-of-day "

@@ -133,3 +133,60 @@ def test_costs_command_lists_runs_per_model(tmp_path):
     assert "| kimi | t1/rep0 | completed | no |" in agent_costs(tmp_path)
     assert "| luna | 2 | **0.030** |" in out and "kimi" not in out
     assert "| kimi | 1 | **0.500** |" in agent_costs(tmp_path)
+
+
+def test_api_errors_are_not_results():
+    from synbio_bench.runner import _infra_failure
+
+    assert _infra_failure({"termination": "error", "n_model_calls": 0})
+    assert _infra_failure({"termination": "error", "n_model_calls": 11, "submitted": {"path": "x"}})
+    assert _infra_failure({"termination": "step_limit", "last_chance": {"termination": "error"}, "submitted": None})
+    assert not _infra_failure({"termination": "step_limit", "last_chance": {"termination": "error"},
+                               "submitted": {"path": "x"}})
+    assert not _infra_failure({"termination": "completed"})
+
+
+def test_run_skips_finished_runs_and_redoes_api_errors(tmp_path, monkeypatch, capsys):
+    import json
+
+    from synbio_bench import runner
+    from synbio_bench.origami.oxdna import OxDNAConfig
+
+    calls = []
+
+    def fake_agent(task, model_cfg, agent_cfg, run_dir, seed):
+        calls.append(run_dir.parent.parent.name)
+        return {"task": task["id"], "model": model_cfg["id"], "termination": "completed", "n_model_calls": 3}
+
+    monkeypatch.setattr(runner, "run_agent", fake_agent)
+    monkeypatch.setattr(runner, "load_task", lambda t: {"id": t, "spec": {}})
+    done = tmp_path / "t__done" / "m" / "rep0"
+    failed = tmp_path / "t__failed" / "m" / "rep0"
+    for d, info in ((done, {"termination": "completed"}),
+                    (failed, {"termination": "error", "error": "APIStatusError: 402 insufficient credits"})):
+        d.mkdir(parents=True)
+        (d / "agent.json").write_text(json.dumps(info))
+    (failed / "result.json").write_text("{}")  # graded as invalid before errors were excluded
+    for t in ("t/done", "t/failed", "t/new"):
+        runner.run_one({}, t, {"id": "m"}, 0, OxDNAConfig(mode="mock"), tmp_path, do_eval=False)
+    assert calls == ["t__failed", "t__new"]  # the finished, ungraded run is not repeated
+    out = capsys.readouterr().out
+    assert "agent done, not graded yet" in out and "402 insufficient credits" in out
+    archived = list((tmp_path / "t__failed" / "m").glob("_failed_rep0_*"))
+    assert len(archived) == 1 and (archived[0] / "result.json").exists()
+    assert json.loads((failed / "agent.json").read_text())["termination"] == "completed"
+    assert list((tmp_path / "t__failed" / "m").glob("rep*")) == [failed]  # the archive isn't seen as a run
+
+
+def test_costs_lists_api_errors(tmp_path):
+    import json
+
+    from synbio_bench.runner import agent_costs
+
+    d = tmp_path / "t1" / "sol" / "rep0"
+    d.mkdir(parents=True)
+    (d / "agent.json").write_text(json.dumps({"model": "sol", "termination": "error", "n_model_calls": 9,
+                                              "error": "BadRequestError: Error code: 400 - reasoning items missing\nmore",
+                                              "tokens": {}, "cost_usd": 0.05}))
+    out = agent_costs(tmp_path)
+    assert "- sol t1/rep0: BadRequestError: Error code: 400 - reasoning items missing" in out and "more" not in out

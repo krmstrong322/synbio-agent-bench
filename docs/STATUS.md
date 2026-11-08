@@ -149,7 +149,7 @@ high cost cap as a safety net. The pilot predates this policy; rerun it before c
 
 ```bash
 uv sync
-uv run pytest                                   # 68 tests, no API keys, oxDNA or Modal needed
+uv run pytest                                   # 71 tests, no API keys, oxDNA or Modal needed
 uv run synbio-bench --experiment configs/pilot.yaml report        # rebuild the pilot report
 uv run synbio-bench --experiment configs/pilot.yaml report --embed
 ```
