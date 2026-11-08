@@ -84,3 +84,30 @@ def test_estimates_from_claude_runs(tmp_path, monkeypatch, capsys):
     assert totals[0]["low"] == pytest.approx(as_haiku) and totals[0]["grading"] == pytest.approx(3 * 0.045)
     no_cache_opus = (100_000 * 2.0 + 10_000 * 10 + 300_000 * 4.0 + 20_000 * 15) / 1e6
     assert totals[0]["high"] == pytest.approx(no_cache_opus)
+
+
+def test_tokens_missing_from_the_transcript_are_counted(tmp_path, capsys):
+    """Older runs dropped replies cut off at the output limit; agent.json still counted them."""
+    runs = tmp_path / "runs" / "tet"
+    kept = [ai(20_000, 0, 20_000, 2_000), ai(40_000, 20_000, 20_000, 3_000)]
+    cut_off = ai(30_000, 20_000, 10_000, 64_000)  # the reply that hit max_tokens
+    write_run(runs, "origami/tet", "claude-haiku-5-5", [*kept, cut_off], HAIKU)
+    run_dir = runs / "origami__tet" / "claude-haiku-5-5" / "rep0"
+    (run_dir / "transcript.json").write_text(json.dumps(messages_to_dict([HumanMessage("go"), *kept]), default=str))
+    info = json.loads((run_dir / "agent.json").read_text())
+    usage_total = {"input_tokens": 90_000, "output_tokens": 69_000,
+                   "input_token_details": {"cache_read": 40_000, "ephemeral_5m_input_tokens": 50_000}}
+    (run_dir / "agent.json").write_text(json.dumps({**info, "cut_off_replies": 1, "usage": {"m": usage_total}}))
+
+    lines = ec.check_baselines([runs], ["claude-haiku-5-5"], {"claude-haiku-5-5": HAIKU})
+    assert lines[0].startswith("OFF") and "64,000 output" in lines[0] and "cut_off_replies=1" in lines[0]
+    recorded = info["cost_usd"]
+    assert f"counting them gives ${recorded:.3f}" in lines[0]
+    calls = ec.run_calls(run_dir)
+    assert len(calls) == 3 and calls[-1]["output"] == 64_000
+    assert ec.run_cost(calls, HAIKU) == pytest.approx(recorded, abs=1e-5)
+
+    # New runs save the dropped reply instead, and the transcript plus it account for everything.
+    (run_dir / "dropped_replies.json").write_text(json.dumps(messages_to_dict([cut_off]), default=str))
+    assert ec.check_baselines([runs], ["claude-haiku-5-5"], {"claude-haiku-5-5": HAIKU})[0].startswith("ok")
+    assert len(ec.run_calls(run_dir)) == 3

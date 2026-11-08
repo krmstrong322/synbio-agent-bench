@@ -26,7 +26,7 @@ def _call(name: str, i: int, **args: Any) -> AIMessage:
     return AIMessage(content="", tool_calls=[{"name": name, "args": args, "id": f"call_{i}"}])
 
 
-def _run(tmp_path, script: list[AIMessage], max_calls: int):
+def _run(tmp_path, script: list[AIMessage], max_calls: int, dropped: list | None = None):
     ws = Workspace(root=tmp_path / "workspace")
     (ws.root / "designs").mkdir(parents=True)
     (ws.root / "designs" / "v1.sc").write_text("{}")
@@ -37,7 +37,7 @@ def _run(tmp_path, script: list[AIMessage], max_calls: int):
         model, ws, extra_tools=[make_submit_tool(ws, sub)], system_prompt=SYSTEM_PROMPT,
         middleware=[BudgetMiddleware(budget)],
     )
-    messages, ended = drive_agent(agent, "design something", budget, {"last_chance_calls": 3})
+    messages, ended = drive_agent(agent, "design something", budget, {"last_chance_calls": 3}, dropped=dropped)
     return sub, model, budget, messages, ended
 
 
@@ -70,8 +70,10 @@ def test_stopping_without_submitting_gets_one_reminder(tmp_path):
 def test_cut_off_reply_is_dropped_and_the_run_carries_on(tmp_path):
     cut = AIMessage("Planning at great length", response_metadata={"stop_reason": "max_tokens"})
     script = [cut, _call("submit_design", 1, design_path="designs/v1.sc", rationale="r"), AIMessage("done")]
-    sub, _, budget, messages, ended = _run(tmp_path, script, max_calls=50)
+    dropped: list = []
+    sub, _, budget, messages, ended = _run(tmp_path, script, max_calls=50, dropped=dropped)
     assert ended == {"termination": "completed", "cut_off_replies": 1}
+    assert [m.content for m in dropped] == ["Planning at great length"]  # kept for token accounting
     assert sub.record is not None and budget.model_calls == 3
     assert not any(m.content == "Planning at great length" for m in messages)
     assert any("[harness] Your last reply hit the output token limit" in str(m.content) for m in messages)

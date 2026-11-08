@@ -89,11 +89,15 @@ def run_agent(task: dict, model_cfg: dict, agent_cfg: dict, run_dir: Path, seed:
     with get_usage_metadata_callback() as cb:
         prices = model_cfg.get("price_per_mtok")
         budget.cost_fn = lambda: (estimate_cost(dict(cb.usage_metadata), prices) or {}).get("total_usd")
-        messages, ended = drive_agent(agent, task["prompt"], budget, agent_cfg, trace=_trace_config(run_dir, task, model_cfg, seed))
+        dropped: list = []
+        messages, ended = drive_agent(agent, task["prompt"], budget, agent_cfg,
+                                      trace=_trace_config(run_dir, task, model_cfg, seed), dropped=dropped)
         usage = dict(cb.usage_metadata)
     info.update(ended)
 
     (run_dir / "transcript.json").write_text(json.dumps(messages_to_dict(messages), indent=1, default=str))
+    if dropped:  # replies cut off at the output limit: not in the transcript, but billed
+        (run_dir / "dropped_replies.json").write_text(json.dumps(messages_to_dict(dropped), indent=1, default=str))
     ai = [m for m in messages if isinstance(m, AIMessage)]
     info.update(
         wall_time_s=round(time.time() - t0, 1),
@@ -134,11 +138,13 @@ def _trace_config(run_dir: Path, task: dict, model_cfg: dict, seed: int) -> dict
     }
 
 
-def drive_agent(agent: Any, prompt: str, budget: Budget, agent_cfg: dict, trace: dict | None = None) -> tuple[list, dict]:
+def drive_agent(agent: Any, prompt: str, budget: Budget, agent_cfg: dict, trace: dict | None = None,
+                dropped: list | None = None) -> tuple[list, dict]:
     """Run the agent within its budget, then give one last chance to submit if it ended without a submission.
 
     Returns the full message history and `{"termination": ..., "last_chance": {...}}`; `termination` is why
-    the main phase ended and `last_chance` is present only when one was given.
+    the main phase ended and `last_chance` is present only when one was given. Replies cut off at the output
+    limit are removed from the history (see below) and appended to `dropped`, so their tokens stay accountable.
     """
     # recursion_limit is a backstop; `max_model_calls` is the real budget
     config = {"recursion_limit": agent_cfg.get("recursion_limit", 1000), **(trace or {})}
@@ -151,6 +157,8 @@ def drive_agent(agent: Any, prompt: str, budget: Budget, agent_cfg: dict, trace:
         # A reply cut off at max_tokens is our limit, not the model stopping: drop it (a half-written tool
         # call can't be replayed) and let the model carry on within its budget.
         cut_offs += 1
+        if dropped is not None:
+            dropped.append(messages[-1])
         messages = [*messages[:-1], HumanMessage(CUT_OFF_MESSAGE)]
     ended: dict[str, Any] = {"termination": termination, **error}
     if cut_offs:

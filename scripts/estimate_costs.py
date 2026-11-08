@@ -68,13 +68,50 @@ def run_cost(calls: list[dict[str, int]], price: dict[str, Any], cached: bool = 
     return sum(call_cost(c, price, cached) for c in calls)
 
 
+def logged_calls(run_dir: Path) -> list[dict[str, int]]:
+    """Calls in the transcript, plus replies the runner dropped from it (cut off at the output limit)."""
+    calls = calls_from_transcript(run_dir / "transcript.json")
+    if (run_dir / "dropped_replies.json").exists():
+        calls += calls_from_transcript(run_dir / "dropped_replies.json")
+    return calls
+
+
+def unlogged(run_dir: Path, calls: list[dict[str, int]]) -> dict[str, int] | None:
+    """Tokens agent.json counted that no logged call accounts for, as one pseudo-call (None if negligible).
+
+    Older runs dropped cut-off replies from the transcript without saving them; their tokens are still in the
+    usage totals. Pricing the difference as one extra call keeps the estimate whole.
+    """
+    agent_json = run_dir / "agent.json"
+    if not agent_json.exists():
+        return None
+    usage = json.loads(agent_json.read_text()).get("usage") or {}
+    total = {"prompt": 0, "cache_read": 0, "cache_write": 0, "output": 0}
+    for u in usage.values():
+        d = u.get("input_token_details") or {}
+        writes = (d.get("ephemeral_5m_input_tokens") or 0) + (d.get("ephemeral_1h_input_tokens") or 0)
+        total["prompt"] += u.get("input_tokens") or 0
+        total["cache_read"] += d.get("cache_read") or 0
+        total["cache_write"] += writes or (d.get("cache_creation") or 0)
+        total["output"] += u.get("output_tokens") or 0
+    rest = {k: max(0, total[k] - sum(c[k] for c in calls)) for k in total}
+    return rest if rest["prompt"] + rest["output"] > 1000 else None
+
+
+def run_calls(run_dir: Path) -> list[dict[str, int]]:
+    calls = logged_calls(run_dir)
+    if extra := unlogged(run_dir, calls):
+        calls.append(extra)
+    return calls
+
+
 def find_baselines(task_id: str, run_roots: list[Path], models: list[str]) -> dict[str, list[list[dict]]]:
     """model -> list of runs (each a list of calls) for this task across the baseline experiments."""
     out: dict[str, list[list[dict]]] = {}
     for root in run_roots:
         for m in models:
             for t in sorted((root / task_id.replace("/", "__") / m).glob("rep*/transcript.json")):
-                calls = calls_from_transcript(t)
+                calls = run_calls(t.parent)
                 if calls:
                     out.setdefault(m, []).append(calls)
     return out
@@ -89,13 +126,21 @@ def check_baselines(run_roots: list[Path], models: list[str], prices: dict[str, 
                 continue
             for agent_json in sorted(root.glob(f"*/{m}/rep*/agent.json")):
                 t = agent_json.with_name("transcript.json")
-                recorded = json.loads(agent_json.read_text()).get("cost_usd")
+                info = json.loads(agent_json.read_text())
+                recorded = info.get("cost_usd")
                 if recorded is None or not t.exists():
                     continue
-                replay = run_cost(calls_from_transcript(t), prices[m])
+                calls = logged_calls(agent_json.parent)
+                replay = run_cost(calls, prices[m])
                 ok = abs(replay - recorded) <= max(0.005, 0.03 * recorded)
-                lines.append(f"{'ok ' if ok else 'OFF'} {agent_json.parent.relative_to(ROOT) if agent_json.is_relative_to(ROOT) else agent_json.parent}: "
-                             f"recorded ${recorded:.3f}, replayed ${replay:.3f}")
+                where = agent_json.parent.relative_to(ROOT) if agent_json.is_relative_to(ROOT) else agent_json.parent
+                line = f"{'ok ' if ok else 'OFF'} {where}: recorded ${recorded:.3f}, replayed ${replay:.3f}"
+                if not ok and (extra := unlogged(agent_json.parent, calls)):
+                    with_extra = run_cost([*calls, extra], prices[m])
+                    line += (f"; {extra['output']:,} output + {extra['prompt']:,} prompt tokens are not in the transcript"
+                             f" (cut_off_replies={info.get('cut_off_replies', 0)}); counting them gives ${with_extra:.3f},"
+                             f" and the estimate includes them")
+                lines.append(line)
     return lines
 
 
