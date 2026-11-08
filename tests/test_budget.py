@@ -118,13 +118,18 @@ def test_costs_command_lists_runs_per_model(tmp_path):
 
     from synbio_bench.runner import agent_costs
 
-    for model, task, cost in (("luna", "t1", 0.01), ("luna", "t2", 0.02), ("kimi", "t1", 0.5)):
+    runs = (("luna", "t1", 0.01, {"submitted": {"path": "x"}}),
+            ("luna", "t2", 0.02, {"submitted": {"path": "x"}, "last_chance": {"submitted": True}}),
+            ("kimi", "t1", 0.5, {"submitted": None}))
+    for model, task, cost, extra in runs:
         d = tmp_path / task / model / "rep0"
         d.mkdir(parents=True)
         (d / "agent.json").write_text(json.dumps({"model": model, "termination": "completed", "n_model_calls": 7,
                                                   "tokens": {"input_tokens": 50000, "cache_read_tokens": 40000,
-                                                             "output_tokens": 3000}, "cost_usd": cost}))
+                                                             "output_tokens": 3000}, "cost_usd": cost, **extra}))
     out = agent_costs(tmp_path, ["luna"])
-    assert "| luna | t1/rep0 | completed | 7 | 50 (40) | 3 | 0.010 |" in out
+    assert "| luna | t1/rep0 | completed | yes | 7 | 50 (40) | 3 | 0.010 |" in out
+    assert "| luna | t2/rep0 | completed | at last chance |" in out
+    assert "| kimi | t1/rep0 | completed | no |" in agent_costs(tmp_path)
     assert "| luna | 2 | **0.030** |" in out and "kimi" not in out
     assert "| kimi | 1 | **0.500** |" in agent_costs(tmp_path)

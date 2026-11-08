@@ -376,6 +376,8 @@ def cmd_evaluate(args: argparse.Namespace) -> None:
         if (run_dir / "result.json").exists() and not (args.force or args.reanalyze):
             continue
         info = json.loads(agent_json.read_text())
+        if args.model and info.get("model") not in args.model:
+            continue
         if not _infra_failure(info):
             todo.append((run_dir, info, load_task(info["task"])))
     _grade_all(exp, oxdna, todo, args.reanalyze, "eval")
@@ -413,7 +415,8 @@ def agent_costs(root: Path, model_filter: list[str] | None = None) -> str:
         by_model.setdefault(info.get("model", "?"), []).append(info)
     if not by_model:
         return f"no agent runs under {root}"
-    lines = ["| model | task/rep | ended | calls | input k (cached k) | output k | est. cost $ |", "|---|---|---|---|---|---|---|"]
+    lines = ["| model | task/rep | ended | submitted | calls | input k (cached k) | output k | est. cost $ |",
+             "|---|---|---|---|---|---|---|---|"]
     totals = []
     for model, runs in by_model.items():
         cost = 0.0
@@ -421,7 +424,9 @@ def agent_costs(root: Path, model_filter: list[str] | None = None) -> str:
             t = r.get("tokens") or {}
             c = r.get("cost_usd")
             cost += c or 0.0
-            lines.append(f"| {model} | {r['_run']} | {r.get('termination')} | {r.get('n_model_calls')} | "
+            submitted = ("yes" if not (r.get("last_chance") or {}).get("submitted") else "at last chance") \
+                if r.get("submitted") else "no"
+            lines.append(f"| {model} | {r['_run']} | {r.get('termination')} | {submitted} | {r.get('n_model_calls')} | "
                          f"{(t.get('input_tokens') or 0) / 1000:.0f} ({(t.get('cache_read_tokens') or 0) / 1000:.0f}) | "
                          f"{(t.get('output_tokens') or 0) / 1000:.0f} | {'–' if c is None else f'{c:.3f}'} |")
         totals.append((model, len(runs), cost))
@@ -458,6 +463,7 @@ def main() -> None:
     e.add_argument("--force", action="store_true", help="re-grade runs that already have result.json")
     e.add_argument("--reanalyze", action="store_true",
                    help="recompute metrics from existing grading simulations instead of re-simulating")
+    e.add_argument("--model", action="append", help="only grade runs of these model ids (repeatable)")
     e.add_argument("--parallel", type=int,
                    help="mode: modal only: GPUs at once (overrides modal.max_parallel); runs always share them")
     e.set_defaults(func=cmd_evaluate)
