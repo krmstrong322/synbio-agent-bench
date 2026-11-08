@@ -139,6 +139,23 @@ high cost cap as a safety net. The pilot predates this policy; rerun it before c
    GLM 5.3, Qwen3.8 Max, GPT-6.1 Sol, GPT-6.1 Terra, GPT-6 Luna (in configs/models.yaml, default reasoning effort).
    Before running: `scripts/estimate_costs.py` replays the Claude runs' per-call token usage at each model's prices. Modal billed $2.54 to date, about 30% over container-time estimates (image builds,
    warm containers).
+
+   **open-models results so far (2026-11-08)**, all graded on Modal at skin 0.1, 1 run each (the tetrahedron on
+   3 seeds); Claude rows are the Modal re-grades in runs/origami-trio-skin01 and runs/wireframe-tetrahedron-modal:
+
+   | task | GPT-6 Luna | GPT-6.1 Terra | GPT-6.1 Sol | Haiku 5.5 | Sonnet 5.5 | Opus 5.5 |
+   |---|---|---|---|---|---|---|
+   | rectangle-4000 | 0.943 | 0.967 | 0.976 | 0.960 | 0.971 | 0.973 |
+   | triangle-4000 | 0.873 | 0.967 | 0.969 | 0.963 | 0.970 | 0.951 |
+   | 6hb-honeycomb-3k | 0.968 | 0.992 | 0.998 | 0.998 | 0.998 | 0.998 |
+   | tetrahedron (reference 0.932) | 0.794 | 0.908 | 0.928 | 0.845 | 0.885 | 0.921 |
+   | mean | 0.895 | 0.959 | 0.968 | 0.942 | 0.956 | 0.961 |
+   | agent API cost, 4 designs | $0.08 | $0.51 | $0.45 | $0.20 | $1.61 | $1.95 |
+
+   Estimates were close (Luna $0.08, Terra $0.70, Sol $1.40 typical). Sol's first attempt ended on an upstream rate
+   limit (+$0.32; now retried automatically) and its triangle first failed grading on a scadnano export bug
+   (min_offset > 0; now worked around). Sol's two tetrahedron designs scored 0.974 and 0.928: single-run gaps of a
+   few hundredths are noise. Still to run: GLM 5.3, Qwen3.8 Max, Kimi K3.1 Pro.
 2. Reference designs for the 4HB, 8-helix sheet, 12HB and the other shape tasks (positive controls). The
    star likely needs the same domain treatment as the triangle; `sharp_triangle.py` is fixed at ~4000 nt.
 3. Repeats: the pilot had n=1 per model. Use ≥3 repeats for real comparisons.
