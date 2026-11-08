@@ -159,3 +159,50 @@ def test_run_agent_end_to_end(tmp_path, monkeypatch):
     assert info["model"] == "scripted" and info["termination"] == "completed"
     assert info["submitted"] is None and info["n_model_calls"] >= 1
     assert (tmp_path / "run" / "transcript.json").exists()
+
+
+class FlakyModel(ScriptedModel):
+    """Raises the queued errors first, then replays the script."""
+
+    errors: list = []
+
+    def _generate(self, messages, stop=None, run_manager=None, **kwargs) -> ChatResult:
+        if self.errors:
+            raise self.errors.pop(0)
+        return super()._generate(messages, stop, run_manager, **kwargs)
+
+
+def test_transient_api_errors_are_retried(tmp_path, monkeypatch):
+    from synbio_bench import runner
+
+    task = {"id": "origami/6hb-honeycomb", "prompt": "Design a 6HB.", "spec": HB6_SPEC}
+    rate_limited = ValueError("{'message': 'openai/gpt-6.1-sol is temporarily rate-limited upstream. "
+                              "Please retry shortly', 'code': 429}")
+    model = FlakyModel(script=[AIMessage("All done.")], errors=[rate_limited, TimeoutError("read timed out")])
+    monkeypatch.setattr(runner, "make_model", lambda m, **kw: model)
+    cfg = {"max_model_calls": 5, "last_chance_calls": 0, "api_retry_delay_s": 0.01}
+    info = runner.run_agent(task, {"id": "flaky", "model": "x:y"}, cfg, tmp_path / "run", seed=0)
+    assert info["termination"] == "completed"
+    assert info["api_retries"] == 2 and "timed out" in info["last_retry_error"]
+    assert info["budget"]["model_calls"] == 1  # one model call, however many attempts
+
+    model = FlakyModel(script=[AIMessage("x")], errors=[ValueError("Invalid schema for function 'ls'")])
+    monkeypatch.setattr(runner, "make_model", lambda m, **kw: model)
+    info = runner.run_agent(task, {"id": "flaky", "model": "x:y"}, cfg, tmp_path / "run2", seed=0)
+    assert info["termination"] == "error" and "Invalid schema" in info["error"]  # not transient: no retry
+    assert info["api_retries"] == 0
+
+
+def test_transient_error_classification():
+    from synbio_bench.retry import is_transient
+
+    class APIStatusError(Exception):
+        def __init__(self, status_code):
+            super().__init__("status")
+            self.status_code = status_code
+
+    assert is_transient(APIStatusError(429)) and is_transient(APIStatusError(503))
+    assert not is_transient(APIStatusError(400)) and not is_transient(APIStatusError(401))
+    assert is_transient(ValueError("Provider returned error: upstream error 502"))
+    assert not is_transient(ValueError("context length exceeded"))
+    assert not is_transient(KeyboardInterrupt())

@@ -30,6 +30,7 @@ from langgraph.errors import GraphRecursionError
 
 from .budget import CUT_OFF_MESSAGE, LAST_CHANCE_MESSAGE, Budget, BudgetMiddleware
 from .cost import estimate_cost
+from .retry import api_retry_middleware
 from origami_agent.agent import build_agent, make_model
 from origami_agent.tools import Workspace
 
@@ -80,9 +81,13 @@ def run_agent(task: dict, model_cfg: dict, agent_cfg: dict, run_dir: Path, seed:
         cost_cap_usd=agent_cfg.get("cost_cap_usd"),
         submitted_fn=lambda: sub.record is not None,
     )
+    retries: dict[str, Any] = {}
+    # Budget first (outermost): a call that is retried still counts as one model call.
     agent = build_agent(
         model, ws, extra_tools=[make_submit_tool(ws, sub)], system_prompt=BENCHMARK_PROMPT,
-        middleware=[BudgetMiddleware(budget)],
+        middleware=[BudgetMiddleware(budget),
+                    api_retry_middleware(retries, max_retries=agent_cfg.get("api_retries", 6),
+                                         initial_delay=agent_cfg.get("api_retry_delay_s", 5.0))],
     )
 
     info: dict[str, Any] = {"task": task["id"], "model": model_cfg["id"], "seed": seed}
@@ -109,6 +114,7 @@ def run_agent(task: dict, model_cfg: dict, agent_cfg: dict, run_dir: Path, seed:
         budget=budget.snapshot(),
         usage=usage,
         tokens=_usage_totals(usage),
+        **retries,
         final_message=(ai[-1].text if ai else "")[:4000],
     )
     if cost := estimate_cost(usage, prices):

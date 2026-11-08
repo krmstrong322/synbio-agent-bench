@@ -118,6 +118,10 @@ recursion_limit / error). Full transcripts are saved for qualitative analysis.
 - A last-chance submission is graded normally. Results record it separately (`last_chance`,
   `submitted_in_budget`), so "solved within budget" and "submitted only when told" stay distinct.
 - A design file that is never submitted is not graded: submitting is the model's decision.
+- Provider trouble is not the model's doing. Transient API errors (rate limits, timeouts, overloads, 5xx) are
+  retried with backoff (`api_retries`, default 6; a retried call counts once against the budget). A run still
+  stopped by an API error is not graded, and `synbio-bench run` repeats it, keeping the failed attempt as
+  `_failed_rep<k>_<time>`.
 
 **Controls**
 - `synbio-bench baseline` grades the expert reference design (`reference_designs/`) as a positive control.
