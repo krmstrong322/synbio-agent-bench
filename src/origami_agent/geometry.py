@@ -15,7 +15,7 @@ from typing import Any
 import numpy as np
 import scadnano as sc
 
-from .design import _grid_neighbors, nucleotide_map
+from .design import _grid_neighbors, nucleotide_map, oxdna_format
 
 OX_TO_NM = 0.8518  # one oxDNA length unit in nm
 
@@ -31,7 +31,7 @@ def _probe(design: sc.Design) -> tuple[np.ndarray, dict]:
         lo, hi = h.min_offset, h.max_offset
         probe.draw_strand(idx, lo).move(hi - lo)
         probe.draw_strand(idx, hi).move(lo - hi)
-    dat, _ = probe.to_oxdna_format(warn_duplicate_strand_names=False)
+    dat, _ = oxdna_format(probe)
     rows = np.array([[float(x) for x in ln.split()] for ln in dat.splitlines()[3:] if ln.strip()])
     r, a1, a3 = rows[:, 0:3], rows[:, 3:6], rows[:, 6:9]
     a2 = np.cross(a3, a1)

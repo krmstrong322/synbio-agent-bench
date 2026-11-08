@@ -16,6 +16,7 @@ import signal
 import subprocess
 import threading
 import time
+import traceback
 from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 from dataclasses import dataclass, field
 from pathlib import Path, PureWindowsPath
@@ -23,7 +24,7 @@ from typing import Any, Callable
 
 import numpy as np
 
-from origami_agent.design import load_design, nucleotide_map
+from origami_agent.design import load_design, nucleotide_map, oxdna_format
 
 from . import analysis, modal_runner
 
@@ -105,7 +106,7 @@ def export_design(design_path: str | Path, out_dir: str | Path) -> dict[str, Any
     out.mkdir(parents=True, exist_ok=True)
     design = load_design(design_path)
     nm = nucleotide_map(design)
-    dat, top = design.to_oxdna_format(warn_duplicate_strand_names=False)
+    dat, top = oxdna_format(design)
     n_top = int(top.split(maxsplit=1)[0])
     if n_top != nm.n:
         raise RuntimeError(f"nucleotide map has {nm.n} particles but oxDNA export has {n_top}")
@@ -482,7 +483,8 @@ def _simulate_group(jobs: list[SimJob], cfg: OxDNAConfig, protocol: str, reanaly
         try:
             result["export"] = export_design(job.design_path, work)
         except Exception as e:  # noqa: BLE001
-            result.update(ok=False, failed_stage="export", error=f"{type(e).__name__}: {e}")
+            result.update(ok=False, failed_stage="export", error=f"{type(e).__name__}: {e}",
+                          log_tail=_tail(traceback.format_exc(), 12))
             sim.alive = False
             continue
         result["initial_backbone"] = analysis.backbone_report(work / "initial.top", work / "initial.dat",

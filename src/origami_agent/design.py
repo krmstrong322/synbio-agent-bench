@@ -9,6 +9,7 @@ know exactly which base pairs the designer intended.
 
 from __future__ import annotations
 
+import copy
 import statistics
 from collections import Counter, defaultdict
 from dataclasses import dataclass, field
@@ -65,6 +66,30 @@ def _domain_slots(design: sc.Design, domain: sc.Domain) -> list[SlotKey]:
             slots.append((domain.helix, offset, j, domain.forward))
         slots.append((domain.helix, offset, -1, domain.forward))
     return slots
+
+
+def oxdna_format(design: sc.Design) -> tuple[str, str]:
+    """scadnano's `to_oxdna_format()` (conf, top), working around a bug in its insertion/deletion table.
+
+    scadnano sizes that table per helix as max_offset - min_offset but then indexes it by raw offset, so any helix
+    with min_offset > 0 raises IndexError (a valid design, e.g. a raster triangle whose helices start at
+    different offsets), and on a helix with min_offset < 0 insertions/deletions are misplaced. Helix positions
+    don't depend on min_offset, so on a copy the positive ones are lowered to 0: same coordinates, no crash.
+    Negative ones with insertions/deletions raise, rather than export wrong geometry.
+    """
+    fixed: sc.Design | None = None
+    for idx, helix in design.helices.items():
+        if helix.min_offset > 0:
+            if fixed is None:
+                fixed = copy.deepcopy(design)
+            fixed.helices[idx].min_offset = 0
+        elif helix.min_offset < 0 and any(
+            d.insertions or d.deletions for s in design.strands for d in s.domains
+            if isinstance(d, sc.Domain) and d.helix == idx
+        ):
+            raise ValueError(f"helix {idx} has min_offset {helix.min_offset} < 0 and insertions/deletions, which "
+                             "scadnano's oxDNA export misplaces; start the helix at offset 0 or above")
+    return (fixed or design).to_oxdna_format(warn_duplicate_strand_names=False)
 
 
 def nucleotide_map(design: sc.Design) -> NucleotideMap:

@@ -130,6 +130,8 @@ def fit_wireframe(points_nm: np.ndarray, spec: dict[str, Any]) -> dict[str, Any]
 
 def design_points_nm(design) -> np.ndarray:
     """Nucleotide positions (nm) of a scadnano design's idealised geometry, from its oxDNA export."""
-    dat, _ = design.to_oxdna_format(warn_duplicate_strand_names=False)
+    from origami_agent.design import oxdna_format
+
+    dat, _ = oxdna_format(design)
     rows = np.array([[float(x) for x in ln.split()[:3]] for ln in dat.splitlines()[3:] if ln.strip()])
     return rows * 0.8518
