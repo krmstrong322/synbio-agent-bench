@@ -4,8 +4,11 @@
 # Add models with scripts/openrouter_models.py (checks tool calling, fills prices), then list their ids below:
 #   uv run python scripts/openrouter_models.py --search <name>
 #   uv run python scripts/openrouter_models.py <org/model> <org/model> ... --add
-# Run agents first, then grade everything together on Modal (designs share GPUs):
-#   uv run synbio-bench --experiment configs/open-models.yaml run --no-eval --parallel 4
+# Estimate first: uv run python scripts/estimate_costs.py --experiment configs/open-models.yaml
+# Run one model at a time (its 4 designs in parallel) and check its cost before the next:
+#   uv run synbio-bench --experiment configs/open-models.yaml run --no-eval --parallel 4 --model gpt-6-luna
+#   uv run synbio-bench --experiment configs/open-models.yaml costs --model gpt-6-luna
+# Then grade on Modal; `evaluate` grades whatever is ungraded, so grading once at the end pools all models:
 #   $env:OXDNA_MODE="modal"; uv run synbio-bench --experiment configs/open-models.yaml evaluate
 name: open-models
 tasks:

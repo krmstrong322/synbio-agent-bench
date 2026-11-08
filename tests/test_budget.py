@@ -96,3 +96,35 @@ def test_cost_cap_counts_towards_budget():
     assert b.notice() is None  # each threshold is announced once
     cost["usd"] = 2.0
     assert b.exceeded() == "cost_cap"
+
+
+def test_snapshot_keeps_models_from_earlier_runs(tmp_path):
+    from synbio_bench.origami.oxdna import OxDNAConfig
+    from synbio_bench.runner import _write_snapshot
+
+    snap = tmp_path / "experiment.snapshot.yaml"
+    exp = {"name": "e", "models": ["a", "b"]}
+    _write_snapshot(snap, exp, {"a": {"id": "a", "price_per_mtok": {"input": 1}}}, OxDNAConfig(mode="mock"))
+    _write_snapshot(snap, exp, {"b": {"id": "b"}}, OxDNAConfig(mode="mock"))
+    _write_snapshot(snap, exp, {"a": {"id": "a", "price_per_mtok": {"input": 2}}}, OxDNAConfig(mode="mock"))
+    import yaml
+
+    models = yaml.safe_load(snap.read_text())["models"]
+    assert set(models) == {"a", "b"} and models["a"]["price_per_mtok"]["input"] == 2
+
+
+def test_costs_command_lists_runs_per_model(tmp_path):
+    import json
+
+    from synbio_bench.runner import agent_costs
+
+    for model, task, cost in (("luna", "t1", 0.01), ("luna", "t2", 0.02), ("kimi", "t1", 0.5)):
+        d = tmp_path / task / model / "rep0"
+        d.mkdir(parents=True)
+        (d / "agent.json").write_text(json.dumps({"model": model, "termination": "completed", "n_model_calls": 7,
+                                                  "tokens": {"input_tokens": 50000, "cache_read_tokens": 40000,
+                                                             "output_tokens": 3000}, "cost_usd": cost}))
+    out = agent_costs(tmp_path, ["luna"])
+    assert "| luna | t1/rep0 | completed | 7 | 50 (40) | 3 | 0.010 |" in out
+    assert "| luna | 2 | **0.030** |" in out and "kimi" not in out
+    assert "| kimi | 1 | **0.500** |" in agent_costs(tmp_path)

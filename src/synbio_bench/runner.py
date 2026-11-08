@@ -277,6 +277,13 @@ def _preload_providers() -> None:
             pass
 
 
+def _write_snapshot(path: Path, exp: dict, models: dict[str, dict], oxdna: OxDNAConfig) -> None:
+    """Record the settings runs used. Models from earlier `run --model ...` calls are kept (newer settings win),
+    so running an experiment one model at a time still leaves every model's settings and prices on record."""
+    earlier = (yaml.safe_load(path.read_text()) or {}).get("models", {}) if path.exists() else {}
+    path.write_text(yaml.safe_dump({"experiment": exp, "models": {**earlier, **models}, "oxdna": oxdna.__dict__}))
+
+
 def cmd_run(args: argparse.Namespace) -> None:
     exp = load_yaml(Path(args.experiment))
     models = load_models(Path(args.models))
@@ -286,9 +293,7 @@ def cmd_run(args: argparse.Namespace) -> None:
     repeats = args.repeats or exp.get("repeats", 1)
     out_root = ROOT / "runs" / exp["name"]
     (out_root).mkdir(parents=True, exist_ok=True)
-    (out_root / "experiment.snapshot.yaml").write_text(
-        yaml.safe_dump({"experiment": exp, "models": {m: models[m] for m in model_ids}, "oxdna": oxdna.__dict__})
-    )
+    _write_snapshot(out_root / "experiment.snapshot.yaml", exp, {m: models[m] for m in model_ids}, oxdna)
     if oxdna.mode == "modal" and not args.no_eval and oxdna.sims_per_gpu > 1:
         print("[note] mode: modal grades each run on its own as its agent finishes, so only its seeds share a GPU. "
               "For the cheapest grading, use `run --no-eval`, then `evaluate`, which pools all runs.")
@@ -396,6 +401,41 @@ def cmd_baseline(args: argparse.Namespace) -> None:
     _grade_all(exp, oxdna, todo, False, "ref ")
 
 
+def agent_costs(root: Path, model_filter: list[str] | None = None) -> str:
+    """Per-model agent token use and estimated API cost from agent.json (graded or not)."""
+    by_model: dict[str, list[dict]] = {}
+    for agent_json in sorted(root.glob("*/*/rep*/agent.json")):
+        info = json.loads(agent_json.read_text())
+        if model_filter and info.get("model") not in model_filter:
+            continue
+        info["_run"] = f"{agent_json.parent.parent.parent.name}/{agent_json.parent.name}"
+        by_model.setdefault(info.get("model", "?"), []).append(info)
+    if not by_model:
+        return f"no agent runs under {root}"
+    lines = ["| model | task/rep | ended | calls | input k (cached k) | output k | est. cost $ |", "|---|---|---|---|---|---|---|"]
+    totals = []
+    for model, runs in by_model.items():
+        cost = 0.0
+        for r in runs:
+            t = r.get("tokens") or {}
+            c = r.get("cost_usd")
+            cost += c or 0.0
+            lines.append(f"| {model} | {r['_run']} | {r.get('termination')} | {r.get('n_model_calls')} | "
+                         f"{(t.get('input_tokens') or 0) / 1000:.0f} ({(t.get('cache_read_tokens') or 0) / 1000:.0f}) | "
+                         f"{(t.get('output_tokens') or 0) / 1000:.0f} | {'–' if c is None else f'{c:.3f}'} |")
+        totals.append((model, len(runs), cost))
+    lines += ["", "| model | runs | est. cost $ |", "|---|---|---|"]
+    lines += [f"| {m} | {n} | **{c:.3f}** |" for m, n, c in totals]
+    lines += ["", "Estimates use configs/models.yaml prices at run time (base rates; no long-prompt or time-of-day "
+              "surcharges). Compare with OpenRouter's activity page for the billed amount."]
+    return "\n".join(lines)
+
+
+def cmd_costs(args: argparse.Namespace) -> None:
+    exp = load_yaml(Path(args.experiment))
+    print(agent_costs(ROOT / "runs" / exp["name"], args.model))
+
+
 def main() -> None:
     load_dotenv(ROOT / ".env")
     p = argparse.ArgumentParser(prog="synbio-bench")
@@ -420,6 +460,10 @@ def main() -> None:
     e.add_argument("--parallel", type=int,
                    help="mode: modal only: GPUs at once (overrides modal.max_parallel); runs always share them")
     e.set_defaults(func=cmd_evaluate)
+
+    c = sub.add_parser("costs", help="agent token use and estimated API cost per run and model (graded or not)")
+    c.add_argument("--model", action="append", help="only these model ids (repeatable)")
+    c.set_defaults(func=cmd_costs)
 
     b = sub.add_parser("baseline", help="grade reference designs as a positive control")
     b.add_argument("--task", action="append")

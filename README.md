@@ -168,6 +168,7 @@ uv run synbio-bench run --no-eval --parallel 4                  # agents only, t
 uv run synbio-bench evaluate                                    # grade later (GPU-bound, serialized)
 OXDNA_MODE=modal uv run synbio-bench evaluate                  # grade on Modal: all runs share GPUs
 uv run synbio-bench report                                      # runs/<name>/results.csv + summary.md
+uv run synbio-bench costs --model <id>                          # agent tokens + est. API cost, graded or not
 uv run synbio-bench --experiment configs/shapes.yaml run        # flat-shape scaling study
 uv run synbio-bench --experiment configs/wireframe-tetrahedron.yaml run   # wireframe tetrahedron
 uv run python scripts/openrouter_models.py <org/model> --add    # add an OpenRouter model (checks tool calling, prices)
