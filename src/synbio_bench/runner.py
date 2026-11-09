@@ -37,6 +37,7 @@ from origami_agent.tools import Workspace
 from .origami.harness import SYSTEM_PROMPT as BENCHMARK_PROMPT
 from .origami.harness import Submission, make_submit_tool
 from .origami.oxdna import OxDNAConfig, config_from_env
+from .origami.spec import provided_scaffold_sequence
 from .origami.scoring import Submission as GradeJob  # not harness.Submission (the agent's submit record)
 from .origami.scoring import evaluate_many, evaluate_submission
 
@@ -73,6 +74,10 @@ def run_agent(task: dict, model_cfg: dict, agent_cfg: dict, run_dir: Path, seed:
     """Run the shipped agent on a task; the benchmark adds only `submit_design` and the run budget."""
     ws = Workspace(root=run_dir / "workspace", script_timeout_s=agent_cfg.get("script_timeout_s", 180))
     (ws.root / "designs").mkdir(parents=True, exist_ok=True)
+    if (seq := provided_scaffold_sequence(task["spec"])):
+        # A provided-scaffold task gives the agent its scaffold sequence as a workspace file to read and assign.
+        (ws.root / "inputs").mkdir(exist_ok=True)
+        (ws.root / "inputs" / "scaffold.txt").write_text(seq + "\n")
     sub = Submission(spec=task["spec"])
     model = make_model(model_cfg["model"], **model_cfg.get("kwargs", {}))
     budget = Budget(

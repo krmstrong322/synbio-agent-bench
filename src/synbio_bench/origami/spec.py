@@ -23,6 +23,25 @@ def _is_m13_fragment(seq: str) -> bool:
     return False
 
 
+def _as_dna(seq: str) -> str:
+    """Upper-case and map RNA U to T, so a provided mRNA matches the DNA scaffold assigned from it."""
+    return (seq or "").upper().replace("U", "T")
+
+
+def provided_scaffold_sequence(spec: dict[str, Any], base_dir: Path | None = None) -> str | None:
+    """The sequence a `source: provided` task folds: `scaffold.sequence`, or the text of `scaffold.sequence_file`
+    (a FASTA or plain file, path relative to `base_dir` or the repo root). Returns DNA (U->T), or None."""
+    scaf = spec.get("scaffold", {})
+    if scaf.get("sequence"):
+        return _as_dna(scaf["sequence"])
+    if scaf.get("sequence_file"):
+        root = base_dir or Path(__file__).resolve().parents[3]
+        text = (root / scaf["sequence_file"]).read_text()
+        seq = "".join(ln.strip() for ln in text.splitlines() if not ln.startswith(">"))
+        return _as_dna(seq)
+    return None
+
+
 def validate_design(design_path: str | Path, spec: dict[str, Any] | None = None) -> dict[str, Any]:
     """The structural check plus (optionally) a task spec.
 
@@ -86,6 +105,17 @@ def _check_spec(
             checks["scaffold_is_m13"] = float(ok)
             if not ok:
                 errors.append("scaffold sequence is not a contiguous fragment of an M13 variant")
+        if scaf_spec.get("source") == "provided" and scaffolds:
+            want = provided_scaffold_sequence(spec)
+            got = _as_dna(scaffolds[0].dna_sequence) if scaffolds[0].dna_sequence else ""
+            # The whole provided molecule must be the scaffold: exact match (orientation-insensitive).
+            ok = bool(want) and len(scaffolds) == 1 and got == want
+            checks["scaffold_is_provided"] = float(ok)
+            if not ok:
+                if not want:
+                    errors.append("task gives source: provided but no scaffold.sequence or scaffold.sequence_file")
+                else:
+                    errors.append(f"scaffold is not the provided sequence (got {len(got)} nt, provided {len(want)} nt)")
         if "min_paired_fraction" in scaf_spec:
             frac = summary["scaffold_paired_fraction"]
             checks["scaffold_coverage"] = min(1.0, frac / scaf_spec["min_paired_fraction"])
