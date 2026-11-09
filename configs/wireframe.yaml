@@ -1,0 +1,21 @@
+# Wireframe polyhedra of rising difficulty: tetrahedron (6 edges), then cube and octahedron (12 edges each,
+# ~2100-nt scaffold). Each edge is a two-helix DX bundle in its own rotated helix group; graded on how well the
+# simulated structure traces the target polyhedron (src/synbio_bench/origami/wireframe.py). References:
+# reference_designs/wireframe_tetrahedron.py and wireframe_polyhedron.py (cube|octahedron).
+name: wireframe
+tasks:
+  - origami-wireframe/tetrahedron
+  - origami-wireframe/cube
+  - origami-wireframe/octahedron
+models: [claude-haiku-5-5, claude-sonnet-5-5, claude-opus-5-5]
+repeats: 1
+agent:
+  max_model_calls: 120
+  wall_timeout_s: 5400
+  cost_cap_usd: 15.0
+  last_chance_calls: 10
+  recursion_limit: 1000
+  script_timeout_s: 300
+evaluation:
+  protocol: shape            # oxDNA grading; run separately with `evaluate`
+  seeds: [1, 2, 3]       # each task also pins seeds [1,2,3] in its task file; wireframe F1 is noisy across seeds

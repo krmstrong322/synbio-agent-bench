@@ -1,0 +1,32 @@
+id: origami-wireframe/octahedron
+title: Wireframe octahedron with two-helix edges
+difficulty: 5
+reference: reference_designs/wireframe_polyhedron.py octahedron
+seeds: [1, 2, 3]  # graded on 3 oxDNA seeds: wireframe F1 varies between seeds
+prompt: |
+  Design a wireframe DNA origami octahedron: a hollow, regular octahedron (6 vertices, 12 edges) whose edges are
+  each a bundle of two parallel helices (a double-crossover, "DX", edge), joined at its six vertices. Each edge
+  should be about 84 bp (about 29 nm) of duplex, and the octahedron about 35 nm along each edge from vertex to
+  vertex. Four edges meet at every vertex.
+
+  Requirements:
+  - exactly 24 helices: two per edge, the pair side by side and joined by staple crossovers along the edge
+  - 80-88 base pairs on every helix
+  - each edge's two helices form one helix group; groups are positioned and rotated (yaw, pitch, roll) so the
+    twelve edges lie along the edges of an octahedron
+  - every vertex joins its four edges with the scaffold or staples
+  - a single scaffold strand that is a contiguous fragment of M13mp18, 1950-2350 nt long
+  - at least 90% of the scaffold base-paired to staples (the rest are short unpaired loops at the vertices)
+  - every staple 18-60 nt long
+
+  Shape: the design's nucleotides must trace an octahedron with 35 nm edges. Precisely, after the best rigid fit,
+  at least 90% of the nucleotides must lie within 3.5 nm of an octahedron edge, and nearly every point along the
+  middle of each edge (more than 6 nm from its vertices) must have a nucleotide within 3.5 nm.
+
+  Save your design under /designs/ and submit it with submit_design.
+spec:
+  num_helices: 24
+  helix_bp: [80, 88]
+  scaffold: {count: 1, source: m13, length: [1950, 2350], min_paired_fraction: 0.90}
+  staple_length: [18, 60]
+  wireframe: {type: octahedron, edge_nm: 35.0, tube_nm: 3.5, min_f1: 0.9}
