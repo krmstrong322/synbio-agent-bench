@@ -226,3 +226,12 @@ The smoke tests need neither API keys nor oxDNA. They use a scripted model and t
 - Adding a task family: design tools and skills go in a shippable package like `src/origami_agent/`;
   task specs (`tasks/<family>/`), spec checks and the simulator-based grader go under
   `src/synbio_bench/<family>/`.
+
+## License
+
+The code is released under the [MIT License](LICENSE).
+
+Exception: the two Rothemund cadnano files in `reference_designs/cadnano/` come from the OpenWetware caDNAno
+file repository and remain under their original terms (GNU FDL or CC BY-SA); see
+`reference_designs/cadnano/SOURCES.md`. The original designs are from P. W. K. Rothemund, *Nature* 440,
+297-302 (2006).

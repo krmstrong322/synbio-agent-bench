@@ -3,6 +3,8 @@ name = "synbio-bench"
 version = "0.1.0"
 description = "DNA origami design agent (scadnano) and the internal benchmark that grades it with oxDNA"
 readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
 requires-python = ">=3.12"
 dependencies = [
     "deepagents>=0.7.32",

@@ -8,3 +8,5 @@
 Original designs: P. W. K. Rothemund, "Folding DNA to create nanoscale shapes and patterns", *Nature* 440, 297–302 (2006).
 The OpenWetware wiki content is available under GNU FDL or CC BY-SA unless otherwise noted.
 The files carry no scaffold sequence; the reference scripts assign M13mp18 (p7249).
+
+These two files are not covered by the repository's MIT License; they keep the OpenWetware terms above.

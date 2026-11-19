@@ -159,8 +159,8 @@ high cost cap as a safety net. The pilot predates this policy; rerun it before c
 2. Reference designs for the 4HB, 8-helix sheet, 12HB and the other shape tasks (positive controls). The
    star likely needs the same domain treatment as the triangle; `sharp_triangle.py` is fixed at ~4000 nt.
 3. Repeats: the pilot had n=1 per model. Use ≥3 repeats for real comparisons.
-4. Choose a licence before making the repo public. The Rothemund cadnano files are CC BY-SA via
-   OpenWetware; see `reference_designs/cadnano/SOURCES.md`.
+4. Resolved 2026-11-19: MIT License (`LICENSE`). The Rothemund cadnano files keep their OpenWetware terms
+   (GNU FDL or CC BY-SA); see `reference_designs/cadnano/SOURCES.md`.
 
 ## Resuming
 
