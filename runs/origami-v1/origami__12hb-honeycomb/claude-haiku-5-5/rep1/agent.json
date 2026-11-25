@@ -1,0 +1,61 @@
+{
+ "task": "origami/12hb-honeycomb",
+ "model": "claude-haiku-5-5",
+ "seed": 1,
+ "termination": "completed",
+ "wall_time_s": 1164.8,
+ "n_messages": 145,
+ "n_model_calls": 46,
+ "tool_calls": {
+  "read_file": 5,
+  "write_file": 11,
+  "run_python": 29,
+  "find_crossover_offsets": 28,
+  "edit_file": 23,
+  "check_design": 1,
+  "submit_design": 1
+ },
+ "submitted": {
+  "source": "/designs/bundle12.sc",
+  "valid": true,
+  "errors": []
+ },
+ "budget": {
+  "model_calls": 46,
+  "max_model_calls": 120,
+  "wall_timeout_s": 3600,
+  "cost_cap_usd": 5.0,
+  "notices": []
+ },
+ "usage": {
+  "claude-haiku-5-5": {
+   "total_tokens": 5291480,
+   "input_tokens": 5172817,
+   "input_token_details": {
+    "cache_read": 5030594,
+    "cache_creation": 142129
+   },
+   "output_token_details": {
+    "reasoning": 96090
+   },
+   "output_tokens": 118663
+  }
+ },
+ "tokens": {
+  "input_tokens": 5172817,
+  "output_tokens": 118663,
+  "total_tokens": 5291480,
+  "cache_read_tokens": 5030594
+ },
+ "api_retries": 0,
+ "final_message": "The design is saved at `designs/bundle12.sc` and submitted. `check_design` reports no errors or warnings.\n\n**Geometry**\n- 12 helices on the honeycomb lattice, arranged as a 3-column, 4-row patch of cells: (0,2), (0,1), (1,1), (2,1), (2,2), (1,2), (1,3), (0,3), (0,4), (1,4), (2,4), (2,3).\n- There are 13 adjacent pairs, and every helix has 2 or 3 neighbours.\n- This is a compact patch, not literally two fused hexagons.\n\n**Scaffold**\n- One contiguous M13mp18 fragment, 998 nt, with its 5\u2032 and 3\u2032 ends at helix ends.\n- It zig-zags through helices 0\u219211 in order, with turns at valid half-crossover offsets from `find_crossover_offsets`.\n- Helix lengths are 80\u201388 bp, all within the 78\u201390 bp requirement.\n- The scaffold is 100% base-paired.\n\n**Staples**\n- 35 staples, each 18\u201346 nt, so all are within the 18\u201360 nt limit.\n- Each staple is a two-domain U-shape joined by one crossover.\n- Nicks sit midway between consecutive crossovers on each helix, and near the helix ends where a segment would otherwise be too long.\n\n**Open issues**\n- Crossovers are sparse. Each adjacent pair has at least one staple crossover, but most have only one. Requiring two per pair found no solution in 20,000 trials, so the bundle is likely floppier than a standard 12-helix bundle.\n- Crossovers are at least 18 bp apart on each helix, which is looser than the usual ~7 bp spacing. I chose this because denser crossovers produced closed staple loops that I could not repair.",
+ "cost": {
+  "total_usd": 0.12741,
+  "uncached_input_usd": 1e-05,
+  "cache_read_usd": 0.05031,
+  "cache_write_5m_usd": 0.01777,
+  "cache_write_1h_usd": 0.0,
+  "output_usd": 0.05933
+ },
+ "cost_usd": 0.12741
+}

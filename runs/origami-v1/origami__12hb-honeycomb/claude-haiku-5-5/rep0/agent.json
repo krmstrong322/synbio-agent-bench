@@ -1,0 +1,61 @@
+{
+ "task": "origami/12hb-honeycomb",
+ "model": "claude-haiku-5-5",
+ "seed": 0,
+ "termination": "completed",
+ "wall_time_s": 1169.6,
+ "n_messages": 88,
+ "n_model_calls": 36,
+ "tool_calls": {
+  "read_file": 3,
+  "write_file": 5,
+  "run_python": 13,
+  "find_crossover_offsets": 17,
+  "edit_file": 11,
+  "check_design": 1,
+  "submit_design": 1
+ },
+ "submitted": {
+  "source": "/designs/bundle12.sc",
+  "valid": true,
+  "errors": []
+ },
+ "budget": {
+  "model_calls": 36,
+  "max_model_calls": 120,
+  "wall_timeout_s": 3600,
+  "cost_cap_usd": 5.0,
+  "notices": []
+ },
+ "usage": {
+  "claude-haiku-5-5": {
+   "total_tokens": 2879017,
+   "input_tokens": 2802920,
+   "input_token_details": {
+    "cache_read": 2699831,
+    "cache_creation": 103015
+   },
+   "output_token_details": {
+    "reasoning": 61106
+   },
+   "output_tokens": 76097
+  }
+ },
+ "tokens": {
+  "input_tokens": 2802920,
+  "output_tokens": 76097,
+  "total_tokens": 2879017,
+  "cache_read_tokens": 2699831
+ },
+ "api_retries": 0,
+ "final_message": "The design is saved at `/designs/bundle12.sc` and submitted. `check_design` reports no errors or warnings.\n\n**Lattice and cross-section**\n- 12 helices on the honeycomb lattice, in a compact 3-column \u00d7 4-row block at grid cells (3..5, 0..3). It contains two fused hexagonal rings.\n- There are 13 adjacent helix pairs. Every helix has 2 or 3 neighbours, and every pair has staple crossovers.\n\n**Scaffold**\n- One contiguous M13mp18 fragment of 999 nt, using the default rotation.\n- It runs along a Hamiltonian path of the bundle: 1\u21920\u21924\u21928\u21929\u21925\u21926\u21922\u21923\u21927\u219211\u219210.\n- Adjacent helices are antiparallel. The turnarounds are half crossovers at valid offsets.\n\n**Helix lengths**\n- Base pairs per helix range from 78 to 87, which meets the 78\u201390 requirement.\n- Scaffold base pairing is 100%.\n\n**Staples**\n- 32 staples, 18\u201353 nt long (mean about 31 nt).\n- Crossovers sit at offsets reported by `find_crossover_offsets`, with 71 crossovers in total.\n- Each staple is a chain of domains, with nicks between chain ends.\n\n**Open issues**\n- One staple is exactly 18 nt, at the lower bound of the allowed range. It is a single 18-bp domain with no crossover.\n- The staple layout came from a stochastic search, so it is not a hand-tuned pattern. I did not run a structural simulation, so the 3D geometry is unverified beyond the crossover-offset checks.",
+ "cost": {
+  "total_usd": 0.07793,
+  "uncached_input_usd": 1e-05,
+  "cache_read_usd": 0.027,
+  "cache_write_5m_usd": 0.01288,
+  "cache_write_1h_usd": 0.0,
+  "output_usd": 0.03805
+ },
+ "cost_usd": 0.07793
+}
