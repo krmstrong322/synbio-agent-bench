@@ -1,0 +1,62 @@
+{
+ "task": "origami/rect-sheet-8x96",
+ "model": "claude-haiku-5-5",
+ "seed": 2,
+ "termination": "completed",
+ "wall_time_s": 215.9,
+ "n_messages": 47,
+ "n_model_calls": 19,
+ "tool_calls": {
+  "read_file": 3,
+  "write_file": 4,
+  "find_crossover_offsets": 4,
+  "run_python": 9,
+  "ls": 1,
+  "edit_file": 4,
+  "check_design": 1,
+  "submit_design": 1
+ },
+ "submitted": {
+  "source": "/designs/build3.sc",
+  "valid": true,
+  "errors": []
+ },
+ "budget": {
+  "model_calls": 19,
+  "max_model_calls": 120,
+  "wall_timeout_s": 3600,
+  "cost_cap_usd": 5.0,
+  "notices": []
+ },
+ "usage": {
+  "claude-haiku-5-5": {
+   "total_tokens": 790437,
+   "input_tokens": 747165,
+   "input_token_details": {
+    "cache_creation": 52739,
+    "cache_read": 694386
+   },
+   "output_token_details": {
+    "reasoning": 36500
+   },
+   "output_tokens": 43272
+  }
+ },
+ "tokens": {
+  "input_tokens": 747165,
+  "output_tokens": 43272,
+  "total_tokens": 790437,
+  "cache_read_tokens": 694386
+ },
+ "api_retries": 0,
+ "final_message": "The design is saved at `/designs/build3.sc` and submitted.\n\n**Design**\n- **Lattice and helices:** 8 square-lattice helices in one row, `grid_position=(i, 0)`, each spanning offsets 0\u201396 (96 bp, about 32 nm \u00d7 20 nm).\n- **Scaffold:** one contiguous 768-nt M13mp18 fragment (rotation 5587). It runs helix 0 forward, then helix 1 reverse, and so on through helix 7 (reverse), with turns at the helix ends (offset 95 at the top, 0 at the bottom).\n- **Staples:** one full-length staple per helix, joined by full crossovers. Even\u2013odd interfaces cross at offsets 9, 41, 73; odd\u2013even interfaces cross at 25, 57. Crossovers alternate sides every 16 bp. Then nicks split everything longer than 46 nt.\n- **Results from `check_design`:** no errors or warnings. 768/768 scaffold bases are paired, and there are no mismatches or unassigned bases. Staples range from 18 to 46 nt (4 \u00d7 18, 16 \u00d7 32, 4 \u00d7 46). There are 43 crossovers, all between adjacent helices, and the structure is one connected component.\n\n**Open issues**\n- The scaffold turns at offsets 95 and 0 are not on the offsets that `find_crossover_offsets` marks as geometrically valid. Valid turn offsets would force helices shorter than 90 bp, so I kept the 96-bp requirement and accepted the less ideal turns.\n- The odd\u2013even interfaces have only two staple crossovers each (at 25 and 57), leaving gaps of about 25 bp at the bottom and about 39 bp at the top. Adding a crossover at 89 creates an isolated 14-nt staple at the top, so I left it out. The helices are still connected, but those ends are weaker.\n- The 18-nt end staples have only 9-bp domains on each helix, which may be marginal for stability.",
+ "cost": {
+  "total_usd": 0.03518,
+  "uncached_input_usd": 0.0,
+  "cache_read_usd": 0.00694,
+  "cache_write_5m_usd": 0.00659,
+  "cache_write_1h_usd": 0.0,
+  "output_usd": 0.02164
+ },
+ "cost_usd": 0.03518
+}

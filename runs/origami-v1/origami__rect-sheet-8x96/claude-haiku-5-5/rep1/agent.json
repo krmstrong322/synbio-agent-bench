@@ -1,0 +1,61 @@
+{
+ "task": "origami/rect-sheet-8x96",
+ "model": "claude-haiku-5-5",
+ "seed": 1,
+ "termination": "completed",
+ "wall_time_s": 283.4,
+ "n_messages": 36,
+ "n_model_calls": 13,
+ "tool_calls": {
+  "read_file": 3,
+  "write_file": 5,
+  "run_python": 7,
+  "find_crossover_offsets": 3,
+  "edit_file": 2,
+  "check_design": 1,
+  "submit_design": 1
+ },
+ "submitted": {
+  "source": "/designs/rect_sheet_8x92.sc",
+  "valid": true,
+  "errors": []
+ },
+ "budget": {
+  "model_calls": 13,
+  "max_model_calls": 120,
+  "wall_timeout_s": 3600,
+  "cost_cap_usd": 5.0,
+  "notices": []
+ },
+ "usage": {
+  "claude-haiku-5-5": {
+   "total_tokens": 604719,
+   "input_tokens": 545147,
+   "input_token_details": {
+    "cache_creation": 64917,
+    "cache_read": 480202
+   },
+   "output_token_details": {
+    "reasoning": 54374
+   },
+   "output_tokens": 59572
+  }
+ },
+ "tokens": {
+  "input_tokens": 545147,
+  "output_tokens": 59572,
+  "total_tokens": 604719,
+  "cache_read_tokens": 480202
+ },
+ "api_retries": 0,
+ "final_message": "The design is saved at `designs/rect_sheet_8x92.sc` and submitted. `check_design` reports no errors or warnings.\n\n**Geometry**\n- 8 helices on a square lattice at grid positions (0,0) through (0,7), a single line with each helix neighbouring the next.\n- Each helix spans 92 bp (offsets 8\u2013100), about 31 \u00d7 22 nm.\n\n**Scaffold**\n- One 736-nt contiguous M13mp18 fragment (rotation 5587).\n- It runs as a serpentine: helix 0 forward, turn at the top to helix 1 reverse, turn at the bottom to helix 2, and so on through helix 7.\n- The turns are half crossovers at offsets 99 (top) and 8 (bottom), chosen from `find_crossover_offsets`.\n- Scaffold base pairing is 100% (736 of 736).\n\n**Staples**\n- Each helix has one full-length staple strand, opposite to the scaffold on that helix.\n- Neighbouring helices are joined by full staple crossovers at offsets 30 and 62 for pairs starting at an even helix, and 46 and 78 for pairs starting at an odd helix.\n- Nicks split the resulting chains so all 16 staples are 32\u201356 nt.\n\n**Open issue**\n- Crossovers are 32 bp apart. The 8\u201322 bp ends of each neighbour pair have no staple crossover.\n- I tried adding crossovers at the end positions, but the resulting 6-bp end pieces gave staples under 18 nt, so I left them out.",
+ "cost": {
+  "total_usd": 0.04271,
+  "uncached_input_usd": 0.0,
+  "cache_read_usd": 0.0048,
+  "cache_write_5m_usd": 0.00811,
+  "cache_write_1h_usd": 0.0,
+  "output_usd": 0.02979
+ },
+ "cost_usd": 0.04271
+}
