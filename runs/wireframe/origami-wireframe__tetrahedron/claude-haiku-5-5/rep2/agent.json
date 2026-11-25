@@ -1,0 +1,62 @@
+{
+ "task": "origami-wireframe/tetrahedron",
+ "model": "claude-haiku-5-5",
+ "seed": 2,
+ "termination": "completed",
+ "wall_time_s": 1000.0,
+ "n_messages": 52,
+ "n_model_calls": 24,
+ "tool_calls": {
+  "read_file": 3,
+  "glob": 1,
+  "write_file": 3,
+  "run_python": 7,
+  "edit_file": 6,
+  "find_crossover_offsets": 4,
+  "check_design": 2,
+  "submit_design": 1
+ },
+ "submitted": {
+  "source": "/designs/tetra.sc",
+  "valid": true,
+  "errors": []
+ },
+ "budget": {
+  "model_calls": 24,
+  "max_model_calls": 120,
+  "wall_timeout_s": 5400,
+  "cost_cap_usd": 15.0,
+  "notices": []
+ },
+ "usage": {
+  "claude-haiku-5-5": {
+   "input_tokens": 1696009,
+   "input_token_details": {
+    "cache_read": 1605450,
+    "cache_creation": 90509
+   },
+   "output_token_details": {
+    "reasoning": 63255
+   },
+   "output_tokens": 75240,
+   "total_tokens": 1771249
+  }
+ },
+ "tokens": {
+  "input_tokens": 1696009,
+  "output_tokens": 75240,
+  "total_tokens": 1771249,
+  "cache_read_tokens": 1605450
+ },
+ "api_retries": 0,
+ "final_message": "The tetrahedron design is saved at `designs/tetra.sc` and submitted. `check_design` reports no errors, but I did not check the 3D shape against the nucleotide-distance criteria.\n\n**Structure**\n- **Helices:** 12 helices, 84 bp each, in six two-helix groups, one per tetrahedron edge. Each group's direction is the edge vector, and the two rows sit 2.6 nm apart, centred on the edge line. The helices stop about 3.2 nm short of each vertex, so each edge is about 28.6 nm of duplex inside a 35 nm edge.\n- **Orientation:** the side vector for each group is n \u00d7 t, where n is the outward normal at the edge midpoint.\n\n**Scaffold**\n- One contiguous M13 scaffold of 1057 nt, with 1008 nt paired (95.4%).\n- It runs through all 12 helices. Each edge's two helices are traversed in opposite directions.\n- Each vertex hop is an unpaired loop of 3 or 7 nt. The route has 11 hops, and the hop distances are 1.9 nm or 4.5 nm, so no vertex is left without a scaffold connection.\n- The route search found no in-pair turns, because the helix-end turn offsets were not confirmed valid.\n\n**Staples**\n- 24 staples of 40\u201344 nt, all within the 18\u201360 nt limit.\n- Each row is bound to its partner by staple crossovers at offsets 22, 43 and 64 (or 27, 48, 69 where the staple direction differs). The tool confirmed these offsets on several edge pairs.\n\n**Open issues**\n- The 95.4% paired fraction is just above the 95% threshold. It depends on the 3\u20137 nt vertex loops.\n- The 3-nt loops span about 1.9 nm, which is at the limit of what single-stranded DNA can stretch.\n- I did not verify the tetrahedron shape numerically. The helix axes sit about 1.3 nm from the edge lines, so nucleotides should fall within the 3.5 nm tolerance, but the middle-of-edge coverage and the vertex regions are unchecked.\n\nThe generating script is `designs/build_tetra.py`.",
+ "cost": {
+  "total_usd": 0.06499,
+  "uncached_input_usd": 1e-05,
+  "cache_read_usd": 0.01605,
+  "cache_write_5m_usd": 0.01131,
+  "cache_write_1h_usd": 0.0,
+  "output_usd": 0.03762
+ },
+ "cost_usd": 0.06499
+}

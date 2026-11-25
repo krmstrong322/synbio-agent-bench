@@ -1,0 +1,60 @@
+{
+ "task": "origami-wireframe/tetrahedron",
+ "model": "claude-haiku-5-5",
+ "seed": 0,
+ "termination": "completed",
+ "wall_time_s": 317.6,
+ "n_messages": 31,
+ "n_model_calls": 15,
+ "tool_calls": {
+  "read_file": 3,
+  "write_file": 1,
+  "run_python": 4,
+  "edit_file": 5,
+  "find_crossover_offsets": 1,
+  "submit_design": 1
+ },
+ "submitted": {
+  "source": "/designs/tet.sc",
+  "valid": true,
+  "errors": []
+ },
+ "budget": {
+  "model_calls": 15,
+  "max_model_calls": 120,
+  "wall_timeout_s": 5400,
+  "cost_cap_usd": 15.0,
+  "notices": []
+ },
+ "usage": {
+  "claude-haiku-5-5": {
+   "input_tokens": 802247,
+   "input_token_details": {
+    "cache_read": 742625,
+    "cache_creation": 59590
+   },
+   "output_token_details": {
+    "reasoning": 42779
+   },
+   "output_tokens": 48870,
+   "total_tokens": 851117
+  }
+ },
+ "tokens": {
+  "input_tokens": 802247,
+  "output_tokens": 48870,
+  "total_tokens": 851117,
+  "cache_read_tokens": 742625
+ },
+ "api_retries": 0,
+ "final_message": "The design is saved at `designs/tet.sc` and submitted. I did not run `check_design` or a 3D shape check, so the geometry and the \u226595% pairing are from my own calculations, not a verification pass.\n\n**Geometry**\n- Regular tetrahedron with 35 nm edges, centred on the origin.\n- Six edges, each a helix group of two 84-bp helices (about 28.6 nm). The pair sits \u00b11.3 nm either side of the edge line, offset along n\u00d7t, where n is the outward normal at the edge midpoint.\n- Groups are oriented with yaw/pitch/roll from the edge direction, using the skill's `group_angles` helper.\n- 12 helices total, all 84 bp.\n\n**Scaffold routing**\n- One 1057-nt contiguous M13mp18 fragment.\n- The route is a directed Eulerian circuit of the doubled tetrahedron: 12 helix traversals and 11 vertex hops. I enumerated all 256 circuits and chose the one with the shortest hops.\n- The two helices of each edge carry the scaffold antiparallel.\n- Vertex hops are 3\u20137 nt loopouts between helix ends 1.9\u20134.5 nm apart. The longest hop is left open, so the scaffold has its free ends there.\n- The 49 unpaired loop nucleotides give about 95.4% paired scaffold, which is just above the 95% threshold.\n\n**Staples**\n- Hairpin staples, one staple crossover per segment boundary, at offsets from `find_crossover_offsets`. Per edge, the crossover offsets are {27, 48} when the staple runs forward on row 0 and {22, 43, 64} when it runs reverse.\n- End segments are single-domain staples.\n- Staple lengths range from 22 to 42 nt, within the 18\u201360 nt limit.\n\n**Open issues**\n- Vertices are held only by the scaffold hops; there are no vertex staples.\n- Staple nicks are not staggered; nicks sit at the same offsets on both helices of each edge.\n- The shape criteria (90% of nucleotides within 3.5 nm of an edge, and mid-edge coverage) depend on scadnano's group placement matching the frame I computed. I did not check this numerically.\n\nThe generator script is `designs/gen_tet.py`.",
+ "cost": {
+  "total_usd": 0.03931,
+  "uncached_input_usd": 0.0,
+  "cache_read_usd": 0.00743,
+  "cache_write_5m_usd": 0.00745,
+  "cache_write_1h_usd": 0.0,
+  "output_usd": 0.02443
+ },
+ "cost_usd": 0.03931
+}

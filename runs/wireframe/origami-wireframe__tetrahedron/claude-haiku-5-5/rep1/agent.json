@@ -1,0 +1,62 @@
+{
+ "task": "origami-wireframe/tetrahedron",
+ "model": "claude-haiku-5-5",
+ "seed": 1,
+ "termination": "completed",
+ "wall_time_s": 259.1,
+ "n_messages": 32,
+ "n_model_calls": 15,
+ "tool_calls": {
+  "read_file": 2,
+  "ls": 1,
+  "write_file": 3,
+  "run_python": 4,
+  "edit_file": 2,
+  "find_crossover_offsets": 2,
+  "check_design": 1,
+  "submit_design": 1
+ },
+ "submitted": {
+  "source": "/designs/tetra.sc",
+  "valid": true,
+  "errors": []
+ },
+ "budget": {
+  "model_calls": 15,
+  "max_model_calls": 120,
+  "wall_timeout_s": 5400,
+  "cost_cap_usd": 15.0,
+  "notices": []
+ },
+ "usage": {
+  "claude-haiku-5-5": {
+   "input_tokens": 770096,
+   "input_token_details": {
+    "cache_read": 719387,
+    "cache_creation": 50677
+   },
+   "output_token_details": {
+    "reasoning": 38276
+   },
+   "output_tokens": 47555,
+   "total_tokens": 817651
+  }
+ },
+ "tokens": {
+  "input_tokens": 770096,
+  "output_tokens": 47555,
+  "total_tokens": 817651,
+  "cache_read_tokens": 719387
+ },
+ "api_retries": 0,
+ "final_message": "The wireframe tetrahedron design is saved at `designs/tetra.sc` and submitted. The structural check passes, but I did not verify the 3D shape metric (nucleotides within 3.5 nm of the edges) directly.\n\n**Geometry**\n- The tetrahedron has vertices at alternate cube corners scaled so each edge is 35 nm.\n- Each edge is a DX pair of two 84-bp helices, placed in their own helix group. Their axes are 2.6 nm apart and centred on the edge line. Each helix ends about 3.2 nm short of each vertex.\n\n**Scaffold routing**\n- The 12 helices correspond to the 12 ordered vertex pairs (a\u2192b), so they form a directed complete graph on 4 vertices.\n- The scaffold is one Eulerian circuit through all 12 helices. Adjacent helices of an edge run antiparallel.\n- Each of the 11 internal vertex hops has a 4\u20135 nt unpaired scaffold loop. The 12th hop is the open 5\u2032/3\u2032 end.\n- I searched random circuits and picked the one with the shortest hop distances (all \u22642.6 nm).\n\n**Staples**\n- Each edge pair has 3 full crossovers at offsets 22, 43 and 64. These are the offsets the crossover tool reports as valid for this helix pair.\n- Between crossovers there are two 42-nt rings, each nicked once. Two end U-staples (40 and 44 nt) cover the helix ends.\n- This gives 24 staples in total, all 40\u201344 nt.\n\n**Checks**\n- `check_design` reports no errors or warnings.\n- The scaffold is 1056 nt, 95.45% paired to staples, with 0 mismatches.\n- 12 helices of 84 bp each, and 47 crossovers.\n\n**Open issues**\n- The scaffold pairing is close to the 95% threshold (95.45%). Shortening the 4\u20135 nt vertex loops would add margin but risks strain at the 2 nm hops.\n- The vertex hops are bare scaffold loops with no vertex staples, so the vertices rely only on the scaffold.",
+ "cost": {
+  "total_usd": 0.03731,
+  "uncached_input_usd": 0.0,
+  "cache_read_usd": 0.00719,
+  "cache_write_5m_usd": 0.00633,
+  "cache_write_1h_usd": 0.0,
+  "output_usd": 0.02378
+ },
+ "cost_usd": 0.03731
+}
