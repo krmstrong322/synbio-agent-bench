@@ -1,0 +1,61 @@
+{
+ "task": "origami/6hb-honeycomb",
+ "model": "claude-haiku-5-5",
+ "seed": 1,
+ "termination": "completed",
+ "wall_time_s": 1220.1,
+ "n_messages": 106,
+ "n_model_calls": 50,
+ "tool_calls": {
+  "read_file": 4,
+  "write_file": 15,
+  "run_python": 20,
+  "find_crossover_offsets": 6,
+  "edit_file": 7,
+  "check_design": 2,
+  "submit_design": 1
+ },
+ "submitted": {
+  "source": "/designs/6hb.sc",
+  "valid": true,
+  "errors": []
+ },
+ "budget": {
+  "model_calls": 50,
+  "max_model_calls": 120,
+  "wall_timeout_s": 3600,
+  "cost_cap_usd": 5.0,
+  "notices": []
+ },
+ "usage": {
+  "claude-haiku-5-5": {
+   "total_tokens": 3510242,
+   "input_tokens": 3427563,
+   "input_token_details": {
+    "cache_read": 3331234,
+    "cache_creation": 96227
+   },
+   "output_token_details": {
+    "reasoning": 63621
+   },
+   "output_tokens": 82679
+  }
+ },
+ "tokens": {
+  "input_tokens": 3427563,
+  "output_tokens": 82679,
+  "total_tokens": 3510242,
+  "cache_read_tokens": 3331234
+ },
+ "api_retries": 0,
+ "final_message": "The 6HB design is saved at `designs/6hb.sc` and submitted. `check_design` passes with no errors or warnings.\n\n**Structure**\n- Six helices on the honeycomb lattice, in a closed ring at grid positions (1,1), (0,1), (0,2), (1,2), (2,2), (2,1). Each helix touches its two ring neighbours.\n- Helix lengths are 126, 133, 119, 133, 119 and 126 bp, all within 115\u2013135.\n\n**Scaffold**\n- One 756-nt contiguous M13mp18 fragment, within the 700\u2013820 nt limit.\n- It runs as a raster 0\u21921\u21922\u21923\u21924\u21925, with neighbours antiparallel. Each turnaround is a half crossover at a helix end.\n- The turnaround offsets were chosen from the valid positions for each helix pair.\n- 100% of scaffold bases are paired to staples.\n\n**Staples**\n- 28 staples, 19\u201343 nt long.\n- Most staples are two-helix pieces joined by one staple crossover. Each pair of ring neighbours has 3\u20134 staple crossovers along its length, spaced about 21 bp apart.\n- Six standalone end pieces (one per helix) close off the helix ends.\n\n**Open issues**\n- The crossover offsets were chosen from residue classes read off `find_crossover_offsets`, not checked one by one. `check_design` passes, but I did not verify the 3D geometry of each staple crossover.\n- Staple crossovers are sparse: one per ~21 bp per pair, with single-crossover staples. This may be less rigid than a denser scheme.",
+ "cost": {
+  "total_usd": 0.08669,
+  "uncached_input_usd": 1e-05,
+  "cache_read_usd": 0.03331,
+  "cache_write_5m_usd": 0.01203,
+  "cache_write_1h_usd": 0.0,
+  "output_usd": 0.04134
+ },
+ "cost_usd": 0.08669
+}

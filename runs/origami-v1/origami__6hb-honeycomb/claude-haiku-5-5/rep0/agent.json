@@ -1,0 +1,61 @@
+{
+ "task": "origami/6hb-honeycomb",
+ "model": "claude-haiku-5-5",
+ "seed": 0,
+ "termination": "completed",
+ "wall_time_s": 133.0,
+ "n_messages": 27,
+ "n_model_calls": 10,
+ "tool_calls": {
+  "read_file": 2,
+  "write_file": 2,
+  "find_crossover_offsets": 7,
+  "run_python": 2,
+  "ls": 1,
+  "check_design": 1,
+  "submit_design": 1
+ },
+ "submitted": {
+  "source": "/designs/6hb_v1.sc",
+  "valid": true,
+  "errors": []
+ },
+ "budget": {
+  "model_calls": 10,
+  "max_model_calls": 120,
+  "wall_timeout_s": 3600,
+  "cost_cap_usd": 5.0,
+  "notices": []
+ },
+ "usage": {
+  "claude-haiku-5-5": {
+   "total_tokens": 335232,
+   "input_tokens": 307065,
+   "input_token_details": {
+    "cache_read": 267523,
+    "cache_creation": 39520
+   },
+   "output_token_details": {
+    "reasoning": 24424
+   },
+   "output_tokens": 28167
+  }
+ },
+ "tokens": {
+  "input_tokens": 307065,
+  "output_tokens": 28167,
+  "total_tokens": 335232,
+  "cache_read_tokens": 267523
+ },
+ "api_retries": 0,
+ "final_message": "The design is saved at `/designs/6hb_v1.sc` and submitted.\n\n**Design summary**\n- **Lattice and layout:** Honeycomb, six helices in a closed ring at grid positions (1,1), (0,1), (0,2), (1,2), (2,2), (2,1). Each helix is 126 bp, and every helix touches exactly two others.\n- **Scaffold:** One 756-nt contiguous M13mp18 fragment (rotation 5587). It runs as a raster: helix 0 forward, then helices 1 to 5 alternating reverse and forward, with turns at the helix ends. Its 5\u2032 and 3\u2032 ends sit at helix ends.\n- **Crossovers:** Each adjacent pair, including 5\u20130, is joined by full staple crossovers every 21 bp. Each pair uses one crossover family, chosen so that crossover positions on each helix are 7 bp apart.\n- **Staples:** 32 staples, 21 to 36 nt, made by nicking the long full-length staples.\n- **Checks:** `check_design` reports no errors or warnings. The scaffold is 100% paired, with 65 crossovers and no crossovers between non-adjacent helices.\n\n**Open issues**\n- The crossover offsets come from `find_crossover_offsets`. I assumed the partner helix accepts the same offset, which the tool's output supports but I did not verify separately.\n- I did not run a 3D or simulation check of the folded structure.",
+ "cost": {
+  "total_usd": 0.0217,
+  "uncached_input_usd": 0.0,
+  "cache_read_usd": 0.00268,
+  "cache_write_5m_usd": 0.00494,
+  "cache_write_1h_usd": 0.0,
+  "output_usd": 0.01408
+ },
+ "cost_usd": 0.0217
+}
