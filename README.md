@@ -1,9 +1,13 @@
 # synbio-bench
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 A model-agnostic agent harness for measuring how well different AI models perform at synthetic-biology
 design tasks. The first task family is **DNA origami**: agents design structures in
 [scadnano](https://scadnano.org) (Python library), and the designs are tested with
 [oxDNA](https://github.com/lorenzo-rovigatti/oxDNA) coarse-grained simulations.
+
+![How the benchmark works: an agent designs DNA origami in scadnano, then an oxDNA simulation grades whether the design holds together](docs/images/bench-flow.svg)
 
 The agent is built on [LangChain Deep Agents](https://docs.langchain.com/oss/python/deepagents/overview).
 Every model gets the identical harness (system prompt, tools, skills, budgets). Only the chat model changes.
