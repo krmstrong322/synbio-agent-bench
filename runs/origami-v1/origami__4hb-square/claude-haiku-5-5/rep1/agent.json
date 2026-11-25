@@ -1,0 +1,62 @@
+{
+ "task": "origami/4hb-square",
+ "model": "claude-haiku-5-5",
+ "seed": 1,
+ "termination": "completed",
+ "wall_time_s": 143.3,
+ "n_messages": 39,
+ "n_model_calls": 14,
+ "tool_calls": {
+  "read_file": 3,
+  "write_file": 3,
+  "run_python": 6,
+  "ls": 1,
+  "edit_file": 2,
+  "find_crossover_offsets": 7,
+  "check_design": 1,
+  "submit_design": 1
+ },
+ "submitted": {
+  "source": "/designs/4hb_square.sc",
+  "valid": true,
+  "errors": []
+ },
+ "budget": {
+  "model_calls": 14,
+  "max_model_calls": 120,
+  "wall_timeout_s": 3600,
+  "cost_cap_usd": 5.0,
+  "notices": []
+ },
+ "usage": {
+  "claude-haiku-5-5": {
+   "total_tokens": 429209,
+   "input_tokens": 398624,
+   "input_token_details": {
+    "cache_read": 348216,
+    "cache_creation": 50378
+   },
+   "output_token_details": {
+    "reasoning": 25169
+   },
+   "output_tokens": 30585
+  }
+ },
+ "tokens": {
+  "input_tokens": 398624,
+  "output_tokens": 30585,
+  "total_tokens": 429209,
+  "cache_read_tokens": 348216
+ },
+ "api_retries": 0,
+ "final_message": "The design is saved at `designs/4hb_square.sc` and submitted. `check_design` reports it ok, with no errors or warnings.\n\n**Geometry**\n- Four helices on a square lattice at (0,0), (1,0), (1,1), (0,1), forming a 2x2 square. Each helix is 64 bp (offsets 0\u201363) and touches two neighbours. The neighbour graph is a cycle 0\u20131\u20132\u20133\u20130.\n- The 10.67 bp/turn square-lattice convention is used.\n\n**Scaffold**\n- One 256-nt contiguous M13mp18 fragment (rotation 5587), within the 240\u2013290 nt range.\n- It runs as a raster around the cycle: h0 forward, h1 reverse, h2 forward, h3 reverse. Each turn is a half crossover at a helix end (offset 63 for 0\u21921 and 2\u21923, offset 0 for 1\u21922).\n- All 256 scaffold bases are paired (100%).\n\n**Staples**\n- Eight staples, 18\u201345 nt, all within the 18\u201360 nt limit.\n- Staple crossovers (full crossovers) sit at:\n  - 0\u20131: offsets 9 and 41\n  - 1\u20132: offsets 17 and 49\n  - 2\u20133: offset 25\n  - 3\u20130: offset 33\n- Nicks at h0@21, h1@29, h2@37 and h3@45 keep the staples short.\n\n**Open issues**\n- The 18-nt staple at the low end has only 9 bp on each of its two helices, so it is weakly anchored.\n- The 2\u20133 and 3\u20130 pairs have only one or two staple crossovers each, so the structure is less stiff than it could be.\n- I did not run any structural simulation.",
+ "cost": {
+  "total_usd": 0.02507,
+  "uncached_input_usd": 0.0,
+  "cache_read_usd": 0.00348,
+  "cache_write_5m_usd": 0.0063,
+  "cache_write_1h_usd": 0.0,
+  "output_usd": 0.01529
+ },
+ "cost_usd": 0.02507
+}

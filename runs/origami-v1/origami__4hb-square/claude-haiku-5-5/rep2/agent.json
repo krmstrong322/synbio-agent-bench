@@ -1,0 +1,62 @@
+{
+ "task": "origami/4hb-square",
+ "model": "claude-haiku-5-5",
+ "seed": 2,
+ "termination": "completed",
+ "wall_time_s": 218.1,
+ "n_messages": 66,
+ "n_model_calls": 26,
+ "tool_calls": {
+  "read_file": 5,
+  "write_file": 3,
+  "find_crossover_offsets": 14,
+  "run_python": 7,
+  "ls": 1,
+  "edit_file": 7,
+  "check_design": 1,
+  "submit_design": 1
+ },
+ "submitted": {
+  "source": "/designs/4hb_v1.sc",
+  "valid": true,
+  "errors": []
+ },
+ "budget": {
+  "model_calls": 26,
+  "max_model_calls": 120,
+  "wall_timeout_s": 3600,
+  "cost_cap_usd": 5.0,
+  "notices": []
+ },
+ "usage": {
+  "claude-haiku-5-5": {
+   "total_tokens": 1206920,
+   "input_tokens": 1162131,
+   "input_token_details": {
+    "cache_read": 1094863,
+    "cache_creation": 67214
+   },
+   "output_token_details": {
+    "reasoning": 38034
+   },
+   "output_tokens": 44789
+  }
+ },
+ "tokens": {
+  "input_tokens": 1162131,
+  "output_tokens": 44789,
+  "total_tokens": 1206920,
+  "cache_read_tokens": 1094863
+ },
+ "api_retries": 0,
+ "final_message": "The 4-helix bundle design is saved at `/designs/4hb_v1.sc` and submitted. `check_design` reports no errors or warnings.\n\n**Geometry**\n- Square lattice, 10.67 bp/turn, four helices in a 2x2 square at grid positions (0,0), (1,0), (1,1), (0,1). Each helix touches two neighbours in a ring 0-1-2-3-0.\n- Helices 0 and 1 span offsets 8\u201370 (62 bp each). Helices 2 and 3 span 3\u201370 (67 bp each).\n\n**Scaffold**\n- One 258-nt contiguous M13mp18 fragment, 100% base-paired.\n- Routing is a raster: helix 0 (reverse) \u2192 helix 1 (forward) via a bottom half-crossover at offset 8, helix 1 \u2192 helix 2 (reverse) via a top half-crossover at 69, helix 2 \u2192 helix 3 (forward) via a bottom half-crossover at 3. The 5\u2032 and 3\u2032 ends sit at helix ends.\n\n**Staples**\n- Seven staples, 23\u201350 nt (mean about 37), all within the 18\u201360 nt limit.\n- Staple crossovers: 0\u20131 at offsets 25 and 57; 1\u20132 at 33; 2\u20133 at 41; 3\u20130 at 17 and 49.\n- Nicks at (helix 1, 45), (helix 3, 29) and (helix 0, 37) break the long chains into the seven staples.\n\n**Open issues**\n- The 1\u20132 and 2\u20133 pairs have only one staple crossover each, so those connections are weaker than the 0\u20131 and 3\u20130 pairs.\n- I did not run a structural simulation, so rigidity is inferred from crossover count and placement, not measured.\n- I left the scaffold at the default M13 rotation.",
+ "cost": {
+  "total_usd": 0.04175,
+  "uncached_input_usd": 1e-05,
+  "cache_read_usd": 0.01095,
+  "cache_write_5m_usd": 0.0084,
+  "cache_write_1h_usd": 0.0,
+  "output_usd": 0.02239
+ },
+ "cost_usd": 0.04175
+}
