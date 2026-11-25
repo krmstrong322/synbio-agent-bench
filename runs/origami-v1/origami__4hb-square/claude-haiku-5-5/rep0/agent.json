@@ -1,0 +1,62 @@
+{
+ "task": "origami/4hb-square",
+ "model": "claude-haiku-5-5",
+ "seed": 0,
+ "termination": "completed",
+ "wall_time_s": 178.4,
+ "n_messages": 32,
+ "n_model_calls": 12,
+ "tool_calls": {
+  "read_file": 3,
+  "write_file": 3,
+  "run_python": 5,
+  "find_crossover_offsets": 4,
+  "ls": 1,
+  "edit_file": 1,
+  "check_design": 1,
+  "submit_design": 1
+ },
+ "submitted": {
+  "source": "/designs/build_v2.sc",
+  "valid": true,
+  "errors": []
+ },
+ "budget": {
+  "model_calls": 12,
+  "max_model_calls": 120,
+  "wall_timeout_s": 3600,
+  "cost_cap_usd": 5.0,
+  "notices": []
+ },
+ "usage": {
+  "claude-haiku-5-5": {
+   "output_token_details": {
+    "reasoning": 32142
+   },
+   "total_tokens": 465654,
+   "output_tokens": 36902,
+   "input_token_details": {
+    "cache_read": 373450,
+    "cache_creation": 55276
+   },
+   "input_tokens": 428752
+  }
+ },
+ "tokens": {
+  "input_tokens": 428752,
+  "output_tokens": 36902,
+  "total_tokens": 465654,
+  "cache_read_tokens": 373450
+ },
+ "api_retries": 0,
+ "final_message": "I designed and submitted the 4-helix bundle. The file is `designs/build_v2.sc`, and `check_design` passes with no errors or warnings.\n\n**Layout:** square lattice, four helices in a 2x2 ring: A(0,0), B(1,0), C(1,1), D(0,1). Each helix touches two others (A\u2013B, B\u2013C, C\u2013D, D\u2013A).\n\n**Helix lengths:** A 64 bp, B 68 bp, C 62 bp, D 67 bp. All are within 60\u201372 bp.\n\n**Scaffold:** one contiguous M13mp18 fragment of 261 nt (rotation 5587). It runs as a serpentine: A forward, half crossover at the top into B reverse, half crossover at the bottom into C forward, half crossover at the top into D reverse. The free ends are A's 5\u2032 end and D's 3\u2032 end. 100% of scaffold bases are base-paired.\n\n**Staple crossovers:** A\u2013B at offsets 41 and 73, B\u2013C at 49, C\u2013D at 57, D\u2013A at 65. I took the offsets from `find_crossover_offsets` on a draft and shifted them by 32 bp, which preserves the lattice phase. The helices form one connected component.\n\n**Staples:** nicks at A/53 and B/57 give six staples of 34, 34, 47, 47, 56 and 43 nt. Each spans two or three helices, and every domain is at least 8 bp.\n\n**Open issues:** the design has only four inter-helix crossover sites, so rigidity is modest. I did not run a 3D simulation, and I did not add the optional scaffold-internal crossovers or the 10.5 bp/turn deletion correction.",
+ "cost": {
+  "total_usd": 0.0291,
+  "uncached_input_usd": 0.0,
+  "cache_read_usd": 0.00373,
+  "cache_write_5m_usd": 0.00691,
+  "cache_write_1h_usd": 0.0,
+  "output_usd": 0.01845
+ },
+ "cost_usd": 0.0291
+}
