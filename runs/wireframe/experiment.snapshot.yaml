@@ -1,0 +1,72 @@
+experiment:
+  agent:
+    cost_cap_usd: 15.0
+    last_chance_calls: 10
+    max_model_calls: 120
+    recursion_limit: 1000
+    script_timeout_s: 300
+    wall_timeout_s: 5400
+  evaluation:
+    protocol: shape
+    seeds:
+    - 1
+    - 2
+    - 3
+  models:
+  - claude-haiku-5-5
+  - claude-sonnet-5-5
+  - claude-opus-5-5
+  name: wireframe
+  repeats: 1
+  tasks:
+  - origami-wireframe/tetrahedron
+  - origami-wireframe/cube
+  - origami-wireframe/octahedron
+models:
+  claude-haiku-5-5:
+    id: claude-haiku-5-5
+    kwargs:
+      max_tokens: 64000
+      streaming: true
+    model: anthropic:claude-haiku-5-5
+    price_per_mtok:
+      cache_read: 0.01
+      cache_write_1h: 0.2
+      cache_write_5m: 0.125
+      input: 0.1
+      output: 0.5
+oxdna:
+  backend: CUDA
+  executable: /usr/local/bin/oxDNA
+  interaction_type: DNA2
+  modal:
+    app: synbio-oxdna
+    environment: null
+    gpu: null
+    max_parallel: 4
+    sims_per_gpu: 3
+    volume: synbio-oxdna-runs
+  mode: wsl
+  protocols:
+    quick:
+      mc_steps: 1000
+      print_every: 10000.0
+      prod_steps: 500000.0
+      relax_steps: 200000.0
+    shape:
+      mc_steps: 2000
+      print_every: 20000.0
+      prod_steps: 1000000.0
+      relax_steps: 200000.0
+    standard:
+      mc_steps: 2000
+      print_every: 50000.0
+      prod_steps: 5000000.0
+      relax_steps: 1000000.0
+  salt_concentration: 1.0
+  seq_dep_file: null
+  temperature: 25C
+  timeout_s: 7200
+  use_average_seq: true
+  verlet_skin: 0.1
+  wsl_distro: Ubuntu
