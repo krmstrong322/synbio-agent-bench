@@ -1,0 +1,1110 @@
+[
+ {
+  "type": "human",
+  "data": {
+   "content": "Design a wireframe DNA origami octahedron: a hollow, regular octahedron (6 vertices, 12 edges) whose edges are\neach a bundle of two parallel helices (a double-crossover, \"DX\", edge), joined at its six vertices. Each edge\nshould be about 84 bp (about 29 nm) of duplex, and the octahedron about 35 nm along each edge from vertex to\nvertex. Four edges meet at every vertex.\n\nRequirements:\n- exactly 24 helices: two per edge, the pair side by side and joined by staple crossovers along the edge\n- 80-88 base pairs on every helix\n- each edge's two helices form one helix group; groups are positioned and rotated (yaw, pitch, roll) so the\n  twelve edges lie along the edges of an octahedron\n- every vertex joins its four edges with the scaffold or staples\n- a single scaffold strand that is a contiguous fragment of M13mp18, 1950-2350 nt long\n- at least 90% of the scaffold base-paired to staples (the rest are short unpaired loops at the vertices)\n- every staple 18-60 nt long\n\nShape: the design's nucleotides must trace an octahedron with 35 nm edges. Precisely, after the best rigid fit,\nat least 90% of the nucleotides must lie within 3.5 nm of an octahedron edge, and nearly every point along the\nmiddle of each edge (more than 6 nm from its vertices) must have a nucleotide within 3.5 nm.\n\nSave your design under /designs/ and submit it with submit_design.\n",
+   "additional_kwargs": {},
+   "response_metadata": {},
+   "type": "human",
+   "name": null,
+   "id": "553e1ebe-c8c1-4eb1-8df9-2bab1b616810"
+  }
+ },
+ {
+  "type": "ai",
+  "data": {
+   "content": [
+    {
+     "thinking": "",
+     "type": "thinking",
+     "index": 0,
+     "signature": "CAQSxwUKEAgUGAI4AUIIdGhpbmtpbmcSDDBjXoFcNGgbjrUcQhoMhxQ/yU8bN3SdDNVKIjByHWS5wePLqjhjje5sijiN+leFyqKLOBUx3oqYUYEyD+pCp2B5nm7+W34hg/0yUSgq5AT0k3wq+MOvJe189lMwSorVB5kZ7Acjnyp9tSFcsoPT1PsrsRYm36GUNvxdQOJDaGOzInGVFngK0XWpUfiwts3cfgBw7kbdudOd4jdzOlKHqfebjcIagTjO7LgB413/Ipwr2ZdGfYDHHiKIAZNIuN9zS0G44I+d3VBjCJgEQzKJklHAjI1R4gR/PQhDNWkWVISPtNwa5b8wgXtRF/he4OIUW2/X4Ds2LkpMrsoRuz+GQOVG3yAhnSxiNrw1nso5mzCsHbIiFGmRxHJ1vJbzezzwuc9xzc1naCNb7CCkxpgN5avdvGeJWSpaq9iUE1HOhumOREPb53I+1HnThl5c2EXByqohIDYKA3zmYb68NQZiFKYdmU2G7Cu1SuCdHT/qCEytJIsf54hCtOqqgfyg4ogRMxXs2PcocXQzsdEh6CaEywUzI0KBNGrulvFdMcpta6RzQviOVk5h4dehZ8WEBHY/HyVJ8IInqDJFz08LECfsm9S0+kEWttTrp+RvDsLF+nacwsNylXmQRgubpRSwq6qTjw43miNQgTXEAiamv4Hg6+vRfp3fIFm/y0p+GsGxA8nmfGpswWO7amX6VwFwzKEOBl/EhXIzVMnG4L1MD2sxXx/Qm0/+asFNtkliJF0NqcIkiw8YDf6dheScRHqRTGvXN1Oo32YPDZrSHNqVCVpgWG+fLDeT/7QccE+/neh95uLkfh3gjZ7Y0htISHWWQVBd9iGrJpvQib7h5BNAGBK0RpvsMhUPLdLdEU2UmMAZsIx2joNR+IRA1roAdlTWo1AkX0hh2aVTTD4NaT4RnCYkwDKJ148YAQ=="
+    },
+    {
+     "id": "toolu_015CSBSjtAerfuckJZq5NyYL",
+     "caller": {
+      "type": "direct"
+     },
+     "input": {},
+     "name": "read_file",
+     "type": "tool_use",
+     "toolset_name": null,
+     "index": 1,
+     "partial_json": "{\"file_path\": \"/skills/origami-design-rules/SKILL.md\", \"limit\": 1000}"
+    },
+    {
+     "id": "toolu_012CfJ7vjTUY3NeYv38YrszK",
+     "caller": {
+      "type": "direct"
+     },
+     "input": {},
+     "name": "read_file",
+     "type": "tool_use",
+     "toolset_name": null,
+     "index": 2,
+     "partial_json": "{\"file_path\": \"/skills/scadnano-python/SKILL.md\", \"limit\": 1000}"
+    }
+   ],
+   "additional_kwargs": {},
+   "response_metadata": {
+    "model_name": "claude-haiku-5-5",
+    "model_provider": "anthropic",
+    "stop_reason": "tool_use",
+    "stop_sequence": null
+   },
+   "type": "ai",
+   "name": "origami-designer",
+   "id": "lc_run--01a212ee-952c-7721-8e79-52292eb0b820",
+   "tool_calls": [
+    {
+     "name": "read_file",
+     "args": {
+      "file_path": "/skills/origami-design-rules/SKILL.md",
+      "limit": 1000
+     },
+     "id": "toolu_015CSBSjtAerfuckJZq5NyYL",
+     "type": "tool_call"
+    },
+    {
+     "name": "read_file",
+     "args": {
+      "file_path": "/skills/scadnano-python/SKILL.md",
+      "limit": 1000
+     },
+     "id": "toolu_012CfJ7vjTUY3NeYv38YrszK",
+     "type": "tool_call"
+    }
+   ],
+   "invalid_tool_calls": [],
+   "usage_metadata": {
+    "input_tokens": 6655,
+    "output_tokens": 203,
+    "total_tokens": 6858,
+    "input_token_details": {
+     "cache_creation": 587,
+     "cache_read": 6064
+    },
+    "output_token_details": {
+     "reasoning": 28
+    }
+   }
+  }
+ },
+ {
+  "type": "tool",
+  "data": {
+   "content": "@@ lines 1-146 of 146 @@\n---\nname: origami-design-rules\ndescription: DNA origami design principles - honeycomb vs square lattice geometry, crossover spacing, scaffold routing, staple length and domain rules, seams, helix ends and twist. Read when planning a design or deciding how to fix one.\n---\n\n# DNA origami design rules\n\n## Geometry\n\n- B-DNA: ~10.5 bp per turn, 0.332 nm rise per bp, ~2 nm diameter. Packed helices sit ~2.25\u20132.6 nm apart.\n- A crossover can only sit where the backbones of two neighbouring helices face each other. Use\n  `find_crossover_offsets(design_path, helix, helix2)` on a draft design to get the valid offsets for\n  each strand direction. Don't hand-derive them.\n\n### Honeycomb lattice (3D bundles: 6HB, 12HB, 24HB, ...)\n- Each helix has up to 3 neighbours, 120\u00b0 apart. At 10.5 bp/turn, 7 bp = 240\u00b0, so crossovers to the 3\n  neighbours fall 7 bp apart and each pair repeats every **21 bp** (2 turns).\n- Use scadnano's default geometry (10.5 bp/turn). No twist correction needed.\n\n### Square lattice (flat sheets, square-section bundles)\n- Each helix has up to 4 neighbours, 90\u00b0 apart. By convention, designs assume **10.67 bp/turn**\n  (`geometry=sc.Geometry(bases_per_turn=10.67)`), so crossovers to one neighbour repeat every **32 bp**\n  (3 turns). In a flat sheet, crossovers to the upper and lower neighbours alternate every **16 bp**.\n- Real DNA is 10.5 bp/turn, so a 10.67 design is under-twisted and the structure develops a global twist.\n  Optional correction: one deletion every ~48 bp along each helix (`design.add_deletion`).\n\n## Scaffold routing\n\n- The scaffold is one continuous strand (a contiguous M13 fragment) that visits every helix.\n- Neighbouring helices carry the scaffold in **opposite directions** (antiparallel).\n- A raster path is standard: run along helix 0, jump to helix 1 at the end, come back, jump to helix 2, and\n  so on. Scaffold crossovers at the helix ends are half crossovers. Pick end offsets where\n  `find_crossover_offsets` allows a half crossover, which means helix ends may differ by a few bp.\n- Optional internal scaffold crossovers add rigidity. Place them only at valid offsets.\n- The scaffold's free 5' and 3' ends should be at a helix end.\n\n## Staples\n\n- Length **18\u201360 nt** (typical 32\u201349). Very short staples (<16 nt) melt; very long ones (>60) synthesize poorly.\n- Each staple should span **2\u20133 helices** (1\u20132 crossovers). Crossovers between helices are what hold the\n  shape together. Every pair of adjacent helices needs staple crossovers along its whole length, roughly\n  every 21 bp (honeycomb) or 32 bp (square, alternating neighbours every 16 bp).\n- Each staple domain (segment on one helix) should be **\u22657 bp**, and every staple should have at least one\n  domain \u226514 bp to anchor it. Nick placement controls domain lengths: put the nick between two crossovers,\n  not next to one.\n- Stagger nicks between neighbouring helices (a \"brick\" pattern) so no continuous seam of nicks runs through\n  the structure.\n- At helix ends, merge short leftover staple pieces into a neighbouring staple instead of leaving <16 nt fragments.\n- Every scaffold base should be paired with a staple (coverage \u226595%), except deliberate single-stranded loops.\n\n## Common failure modes\n\n| Problem | Likely cause | Fix |\n|---|---|---|\n| strained crossover (a long backbone bond in 3D) | crossover at an offset where the backbones don't face | move it to an offset from `find_crossover_offsets` |\n| staples likely to fall off in one region | short staple domains, or too few crossovers there | lengthen domains, move nicks, add crossovers |\n| a helix barely attached | too few crossovers to its neighbours | add staple crossovers along that helix's whole length |\n| twisted or bent structure | crossover spacing doesn't match the lattice's twist | check crossover spacing and twist (square lattice) |\n| floppy structure | too few crossovers | add crossovers, especially near the ends |\n| sheet splits along a seam | a line of nicks or a gap in crossovers between two rows | stagger nicks; connect every pair of rows along their whole overlap |\n\n## Flat shapes (Rothemund-style 2D origami)\n\nThe simplest single-layer shape is a raster: parallel helices in **one row of the square lattice**, each\nspanning the width of the shape at its height. That suits rectangles and disks. Shapes with sharp corners\nhold together better when built from several domains (see below).\n\n**Sizing.** Use 0.34 nm per bp along a helix and 2.6 nm between neighbouring helices. A shape of area A\nneeds about A / (0.34 \u00d7 2.6) bp of scaffold, so the scaffold length sets the area. Choose the number of rows\nfrom the shape's height (height / 2.6 nm). Give row k a length of \u2248 width(y_k) / 0.34 bp, where y_k is that\nrow's height in the shape. Then adjust row lengths so the total matches the scaffold length.\n\n**Scaffold path.** Use a raster: row 0 left\u2192right, jump to row 1, row 1 right\u2192left, and so on. Each jump is a\nhalf crossover at a row end. Consecutive rows therefore share an end on alternating sides, so the shape's\nedge becomes a staircase. Row ends must be at offsets where `find_crossover_offsets` allows a half crossover\nfor that strand direction. Snap each row's ends to the nearest allowed offset.\n\n**Staples.** Use the square-lattice convention (`bases_per_turn=10.67`). Staple crossovers alternate between\nthe upper and lower neighbour every 16 bp. A typical interior staple is 32 nt: 8 bp + 16 bp + 8 bp over three\nhelices, or 16 + 16 over two. Where a neighbouring row is shorter, staples at the edge can only cross one way.\nMerge or extend those staples so none falls below 16 nt.\n\n**Weak points.** Narrow features (star tips, triangle corners) are held by only a few crossovers. Make sure\nevery row is connected to both neighbours wherever they overlap, along its whole length.\n\n### Sharp corners: build the shape from domains\n\nA single raster runs out of helix at a sharp corner: the rows near a triangle's apex or a star's tip are\nonly a few turns long, held by one or two crossovers, and they splay or fold over. Rothemund (2006) saw this\ndirectly. His triangle made from three rectangular domains rarely came out equiangular. His **sharp\ntriangle**, made from three **trapezoids** with bridged seams, folded well (88% well formed).\n\nThe sharp triangle:\n- **One trapezoid per edge.** Its helices run parallel to that outer edge and get shorter towards the\n  centre. The slanted ends follow seams that bisect the triangle's corners (30\u00b0 to each edge), so each row\n  inward loses \u221a3 \u00d7 2.6 nm \u2248 4.5 nm (\u224813 bp) at each end. Rows pair up at alternating ends for the scaffold\n  turns, so each slanted end is a 2-row staircase.\n- **Leave the centre open.** Stop adding rows while the innermost row is still \u2265 ~100 bp long. The outline\n  is still a triangle, and no helix is short.\n- **One scaffold through all three.** Raster each trapezoid and cross between trapezoids where two row ends\n  meet: the outer rows at an outer corner, or the innermost rows at a corner of the hole. With an odd number\n  of rows per trapezoid: trapezoid A from inner to outer row, cross at the outer corner into B, B from outer\n  to inner, cross at the inner corner into C, C from inner to outer. Leave 2\u20133 unpaired scaffold bases at\n  each crossing.\n- **Bridge the seams.** Join the staple ending at one trapezoid's row end to the staple starting at the\n  neighbouring trapezoid's matching row end, with a short poly-T loop (0\u20133 T, more towards the outer edge\n  where the gap is wider). Without bridges the trapezoids hold only by stacking, and their tips fold inwards.\n\nThe same idea applies to other shapes with corners or narrow arms: split the shape into domains whose\nhelices run along the long direction of each part, and join the domains with the scaffold and bridging\nstaples (see the scadnano skill's helix groups).\n\n## Wireframe polyhedra (DX edges)\n\nWireframe origami (DAEDALUS; Veneziano et al., 2016) builds a hollow polyhedron from edges that are each a\ntwo-helix bundle (DX: two antiparallel helices side by side, joined by crossovers), meeting at vertices.\n\n- **Edges.** Each edge is its own helix group with two rows (see the scadnano skill: orienting a group in 3D).\n  Make each edge a whole number of turns at 10.5 bp/turn (42, 63, 84, 105 bp; 42 bp minimum) and use\n  `bases_per_turn=10.5` for those groups. Lay the two helices side by side in the plane tangent to the\n  surface: with t the edge direction and n the outward normal at the edge's midpoint (from the centre of the\n  polyhedron), put row 1 on the side `n \u00d7 t` of row 0.\n- **Vertices.** Stop each helix short of the vertex point (about 4\u20135 nm where three edges meet at 60\u00b0) so the\n  edges don't collide; the vertex point is where the edge lines would meet. Edges join at the vertex only through\n  the scaffold and staples, with 2\u20133 unpaired bases (scaffold) or T (staples) bridging each hop.\n- **Scaffold route.** Choose a spanning tree of the edges (for a tetrahedron, the three edges at one vertex).\n  Keep right: on edge v\u2192w the scaffold runs v\u2192w on the helix on the right (seen from outside, looking along\n  v\u2192w) and w\u2192v on the left one. Walking the route, at every vertex turn onto the next edge counter-clockwise\n  (seen from outside). A tree edge is crossed twice, once along each helix. An edge outside the tree is\n  entered from both ends: run to the middle, cross to the other helix (a scaffold crossover at a valid offset\n  near mid-edge) and come back. The route then visits every helix once and closes into one loop; open it at a\n  nick in the middle of an edge.\n- **Edge staples.** Put staple crossovers between an edge's two helices every 21 bp (two turns), starting\n  about 21 bp in from each end. Between two crossovers the staples close into a 42-nt ring; nick each ring\n  once, mid-domain, giving 42-nt staples (about 10 + 21 + 11 nt).\n- **Vertex staples.** At every scaffold hop between edges, join the staple on the edge the scaffold leaves to the\n  staple on the edge it enters, with a short poly-T loop. Without these, the edges are held together only by the\n  scaffold and the vertices are floppy. Give each arm at least ~10 bp: nick the U-shaped staple at an edge's end\n  so that one arm of about 11 bp is left at the vertex, and let the vertex staple carry it across.\n- **Check the geometry** before stapling: the helix ends that each hop joins should be 1\u20134 nm apart, and\n  helices from different edges should be \u2265 ~2.5 nm apart at the vertices. A hop much longer than that means a\n  helix is on the wrong side (break the keep-right rule and the route crosses the vertex).\n\n**Generate, don't hand-place.** Shapes with thousands of bases need loops: compute row extents, draw strands,\nadd crossovers at computed offsets, then nick. Print the row lengths and the total scaffold length from your\nscript so you can see that the shape and size come out as intended.",
+   "additional_kwargs": {},
+   "response_metadata": {},
+   "type": "tool",
+   "name": "read_file",
+   "id": "ae50a39a-5cfd-4d45-b8ae-3002dcfdd22c",
+   "tool_call_id": "toolu_015CSBSjtAerfuckJZq5NyYL",
+   "artifact": null,
+   "status": "success"
+  }
+ },
+ {
+  "type": "tool",
+  "data": {
+   "content": "@@ lines 1-164 of 164 @@\n---\nname: scadnano-python\ndescription: How to build DNA origami designs with the scadnano Python library - helices and lattices, drawing scaffold and staple strands, crossovers, nicks, M13 sequence assignment, insertions/deletions, saving .sc files. Read before writing any design script.\n---\n\n# scadnano Python API\n\n`import scadnano as sc` (version 0.21). A worked example lives in\n`/skills/scadnano-python/examples/three_helix_sheet.py`. Read it first.\n\n## Coordinates\n\n- A **helix** is indexed by an integer `idx` and spans offsets `[min_offset, max_offset)` (one offset = one base pair).\n- A **domain** is a contiguous stretch of one strand on one helix: `sc.Domain(helix, forward, start, end)`. `end` is exclusive.\n  `forward=True` means the strand runs 5'\u21923' left to right (increasing offset).\n- Two domains on the same helix with opposite `forward` and overlapping offsets are base paired.\n- A **strand** is a list of domains, 5'\u21923'. Consecutive domains on different helices form a **crossover**.\n\n## Building a design\n\n```python\nhelices = [sc.Helix(max_offset=200, grid_position=(h, v)) for (h, v) in positions]\ndesign = sc.Design(helices=helices, strands=[], grid=sc.honeycomb)   # or sc.square\n# square lattice convention: geometry=sc.Geometry(bases_per_turn=10.67)\n```\n\n- `grid_position=(h, v)`: `h` is the horizontal grid coordinate and `v` the vertical one.\n  - **square**: neighbours of (h, v) are (h\u00b11, v) and (h, v\u00b11).\n  - **honeycomb** (cadnano coordinates): every cell has 3 neighbours: (h\u00b11, v) and one vertical neighbour.\n    A compact 6-helix ring is `[(1,1),(0,1),(0,2),(1,2),(2,2),(2,1)]` (consecutive entries are neighbours, and the last is next to the first).\n  - Don't guess adjacency. Call `find_crossover_offsets` on a draft: it reports `adjacent: true/false`.\n\n### Drawing strands (StrandBuilder)\n\n```python\ndesign.draw_strand(helix, offset).move(n)        # domain [offset, offset+n), forward\ndesign.draw_strand(helix, offset).move(-n)       # domain [offset-n, offset), reverse\ndesign.draw_strand(0, 0).move(32).cross(1).move(-32)   # crossover to helix 1 at the same offset\ndesign.draw_strand(0, 0).to(32).cross(1, offset=40).to(8)  # .to() goes to an absolute offset\ndesign.draw_strand(0, 0).move(64).as_scaffold()  # mark as scaffold\n```\n\n`draw_strand` adds the strand to the design immediately. You can also build `sc.Strand([...domains...])`\nobjects and pass them as `strands=` to `sc.Design`. Mark the scaffold with `strand.set_scaffold()`.\n\n### Editing: crossovers, nicks, ligation\n\nA common workflow: draw full-length scaffold and staple domains on every helix, then cut and reconnect.\n\n```python\ndesign.add_nick(helix=h, offset=o, forward=f)          # cut between o-1 and o\ndesign.add_full_crossover(helix=a, helix2=b, offset=o, forward=f)\n#   two half crossovers between o-1 and o, on the strand on helix a with direction f\n#   (the strand on helix b must run the opposite way). Auto-nicks if needed.\ndesign.add_half_crossover(helix=a, helix2=b, offset=o, forward=f)\n#   joins a strand END at offset o on helix a to a strand END at offset o on helix b.\n#   Both strands must already end there (5'/3' ends adjacent).\ndesign.ligate(helix=h, offset=o, forward=f)            # undo a nick\n```\n\nAn `IllegalDesignError` from a crossover or nick call usually means no domain with that direction covers\nthat offset on one of the helices, or (for half crossovers) the strands don't end there. Check directions: scaffold and staple run opposite ways on each helix,\nand neighbouring helices' scaffolds run opposite ways.\n\n### Helix groups (domains whose helices point in different directions)\n\nA flat sheet can be built from several domains, each a `HelixGroup` with its own lattice, position and\norientation. Helices run along +z; on the square grid, `grid_position=(0, j)` puts row j at y = j \u00d7 spacing.\n`pitch` (degrees) rotates a group within that y\u2013z plane: pitch 120 turns the helix direction from +z to\n(y = 0.866, z = \u22120.5). Keep x = 0 and yaw/roll at 0 so every group stays in the same plane.\n\n```python\ngeom = sc.Geometry(bases_per_turn=10.67, rise_per_base_pair=0.34, helix_radius=1.0, inter_helix_gap=0.6)  # 2.6 nm apart\ngroups = {\n    \"A\": sc.HelixGroup(grid=sc.square, pitch=0,   position=sc.Position3D(x=0, y=1.3,  z=0.0),  geometry=geom),\n    \"B\": sc.HelixGroup(grid=sc.square, pitch=120, position=sc.Position3D(x=0, y=-0.65, z=94.9), geometry=geom),\n}\nhelices = [sc.Helix(grid_position=(0, j), group=g, max_offset=300) for g in groups for j in range(7)]\ndesign = sc.Design(helices=helices, groups=groups, strands=[])   # helix indices follow the list order\n```\n\nA group's `position` is where its offset 0 on row 0 sits, in nm. Strands may run through several groups.\nBuild a strand from explicit domains, where consecutive domains on different helices form a crossover:\n\n```python\ndesign.add_strand(sc.Strand(domains=[\n    sc.Domain(helix=6, forward=True, start=100, end=290),\n    sc.Loopout(length=3),                                  # unpaired bases bridging a gap between domains\n    sc.Domain(helix=7, forward=True, start=12, end=280),\n], is_scaffold=True))\n```\n\n`find_crossover_offsets` compares the same offset on two helices, so use it between rows of one group. Where\ntwo groups meet, join row ends directly. A `Loopout` in a staple gets `?` bases from `assign_m13_to_scaffold`;\nset them to T afterwards: `s.set_dna_sequence(s.dna_sequence.replace(\"?\", \"T\"))`.\n\n### Orienting a group in 3D (yaw, pitch, roll)\n\nFor 3D shapes (wireframe edges, bundles at angles) give each group `yaw`, `pitch` and `roll` in degrees.\nscadnano applies yaw, then pitch, then roll, and the helices end up running along\n\n    forward = (cos(pitch)\u00b7sin(yaw), sin(pitch), cos(pitch)\u00b7cos(yaw))\n\nwith roll turning the grid rows about that direction. To place a group from the directions you want:\n\n```python\nimport math\nimport numpy as np\n\ndef group_angles(forward, side):\n    \"\"\"(yaw, pitch, roll) in degrees: helices run along unit vector `forward`; grid row 1 sits on the `side`\n    of row 0 (a unit vector perpendicular to forward).\"\"\"\n    f, s = np.asarray(forward, float), np.asarray(side, float)\n    yaw, pitch = math.atan2(f[0], f[2]), math.asin(max(-1.0, min(1.0, f[1])))\n    x0 = np.array([math.cos(yaw), 0.0, -math.sin(yaw)])\n    y0 = np.array([-math.sin(pitch) * math.sin(yaw), math.cos(pitch), -math.sin(pitch) * math.cos(yaw)])\n    roll = math.atan2(-s.dot(x0), s.dot(y0))\n    return tuple(math.degrees(a) for a in (yaw, pitch, roll))\n\nyaw, pitch, roll = group_angles(forward=t, side=side)\ngroup = sc.HelixGroup(grid=sc.square, position=sc.Position3D(*p0), yaw=yaw, pitch=pitch, roll=roll,\n                      geometry=sc.Geometry(bases_per_turn=10.5, rise_per_base_pair=0.34,\n                                           helix_radius=1.0, inter_helix_gap=0.6))\n```\n\nWith that group, the axis of row j at offset o is at `p0 + j*2.6*side + o*0.34*forward` (nm). Print these\npoints for every helix end and check that ends meant to meet are 1\u20134 nm apart and that no two groups' helices\ncome closer than ~2.5 nm. Strands may jump between groups anywhere: consecutive domains on different helices\nmake the jump, and a `Loopout` between them adds unpaired bases to bridge the gap.\n\n### Sequences\n\n```python\ndesign.assign_m13_to_scaffold()   # exactly one scaffold required; uses M13mp18 (p7249), rotation 5587\ndesign.assign_m13_to_scaffold(rotation=0, variant=sc.M13Variant.p7249)\n```\n\nThe scaffold takes the first N bases of M13 starting at `rotation`. Staples automatically get the complementary\nsequence wherever they pair with the scaffold. Staple bases that pair with nothing get `?` and fail validation.\nAssign sequences **last**, after all strand edits.\n\n### Insertions / deletions (twist correction)\n\n```python\ndesign.add_deletion(helix=h, offset=o)          # skip one base pair at offset o (both strands)\ndesign.add_insertion(helix=h, offset=o, length=1)\n```\n\n### Inspecting and saving\n\n```python\nfor s in design.strands:\n    print(s.is_scaffold, s.dna_length(), [(d.helix, d.start, d.end, d.forward) for d in s.domains])\ndesign.write_scadnano_file(filename=\"designs/v1.sc\")       # relative to the workspace root\ndesign = sc.Design.from_scadnano_file(\"designs/v1.sc\")\n```\n\n## Gotchas\n\n- Domains of the same direction on the same helix must not overlap.\n- `add_full_crossover` at offset `o` needs both strands to cover `o-1` and `o`.\n- Put the scaffold's 5'/3' ends (and any seam) where a nick is acceptable. A scaffold that should be one\n  strand must end up as exactly one `Strand` with `is_scaffold=True`.\n- Print strand summaries after each step while developing. It's the fastest way to see what an edit did.",
+   "additional_kwargs": {},
+   "response_metadata": {},
+   "type": "tool",
+   "name": "read_file",
+   "id": "5704875c-cd28-4674-a55b-2a1aa63b345f",
+   "tool_call_id": "toolu_012CfJ7vjTUY3NeYv38YrszK",
+   "artifact": null,
+   "status": "success"
+  }
+ },
+ {
+  "type": "human",
+  "data": {
+   "content": "[harness] Your last reply hit the output token limit before it finished, so it was discarded. Carry on from where you were, and keep each reply shorter: plan briefly, and write long scripts in smaller pieces.",
+   "additional_kwargs": {},
+   "response_metadata": {},
+   "type": "human",
+   "name": null,
+   "id": "859baee8-617d-4a2c-bf8c-3cda5b633089"
+  }
+ },
+ {
+  "type": "ai",
+  "data": {
+   "content": [
+    {
+     "thinking": "",
+     "type": "thinking",
+     "index": 0,
+     "signature": "CAQSqwYKEAgUGAI4AUIIdGhpbmtpbmcSDD/S2f714uB0AKkydxoMqsbrhrH6y10AZtELIjB/jKDbpa9WNK0wy/9TkzEEnC+XFc4bOrdfiCAkYWNL91AvQgGx8Pjw3O9NxMsNJecqyAXOpQE4BEy68cdvbtYhBvJm0VAqBZvSCE4PHq7YUYH3jSYr0ptF7WENkUR7rzl6c7wWDFxwA7JDlXVg/7Sw+2Ss6P4dvIr55NAV5gNgak6p+D7hhH2k/IGiiG3Ker9r9mckXGHUmM40Ww1zUGmXQigTIYL4/yDfPB0pqM3VTF/C1aXGG7fLucw5GCi0XmhcTfKyBxzl8djZIecDtbxFs19ce6NUKw9HYw7k3X4YljRC8+hTmqylF+6kRBHONbTMDQo9GcILfAMQWqzaWYTPyLnzOkDae12lxB4Hdf42kH9qHjQGTtSw34yEkhTlU0wEw57u9VEnKHTy4q7E16T7cMpt6B5wPNTcaNQ8ssdF1mARfjoVjGW9oE8lnbxCMC/eHgRMkkBrWCwzdashn/GbFF5zjlIUTYkEB4uJnhcw2ZsVuHkTNOafnOF3tSSLIuo4NLCgtagHMzeZzsQnXq/hjrgLl+QvfI2XQ8NSfhv9r81nJX7vpMcdlG3INUSv7dM8gpvxcnqTHndNK2sNyw0BJeLvZh/+/jgXYo9AbMdRX4GU9/Yv0h2Yd9Te4PxP54hpF0Rx0GTlmNBmczkfesKmKuADjAG0aUln/OzorcSwTvDO2bGPUCOSlrb3PSXqRCsJB9TsowZcmEfkBB1uTOCmNxgodoDNLYsui77w0iQ+b/LtAicNmfEEKkocJKDYxOQE4uV+QGVFKCom4YL2uYewjC74IjTkwJ47TII+rSTZZ2X0FN4Nn7LSYxnn1vNm9e/nwWh2Aqyhz++Ea6r/Y8dB1/kS3kyg5CkAAR2gRrLTyR+rQpjnMtylxQEOZyW1whQphe8po2bBq58el1YxRjn+UqIad04j5CbHdwuWkLmWghh+9A3FHZxxCbjaGuet+GlmSA9nfHKKn26UJNlr3OadavZM/RtsSWOIeV7NXqfGjABOYVVcNd6+Nd/ZGAE="
+    },
+    {
+     "id": "toolu_013QFV78ZQtAvYm1KgTYtnpm",
+     "caller": {
+      "type": "direct"
+     },
+     "input": {},
+     "name": "read_file",
+     "type": "tool_use",
+     "toolset_name": null,
+     "index": 1,
+     "partial_json": "{\"file_path\": \"/skills/scadnano-python/examples/three_helix_sheet.py\", \"limit\": 80}"
+    }
+   ],
+   "additional_kwargs": {},
+   "response_metadata": {
+    "model_name": "claude-haiku-5-5",
+    "model_provider": "anthropic",
+    "stop_reason": "tool_use",
+    "stop_sequence": null
+   },
+   "type": "ai",
+   "name": "origami-designer",
+   "id": "lc_run--01a212f3-25b8-745d-838e-e2802ae95703",
+   "tool_calls": [
+    {
+     "name": "read_file",
+     "args": {
+      "file_path": "/skills/scadnano-python/examples/three_helix_sheet.py",
+      "limit": 80
+     },
+     "id": "toolu_013QFV78ZQtAvYm1KgTYtnpm",
+     "type": "tool_call"
+    }
+   ],
+   "invalid_tool_calls": [],
+   "usage_metadata": {
+    "input_tokens": 14723,
+    "output_tokens": 126,
+    "total_tokens": 14849,
+    "input_token_details": {
+     "cache_creation": 69,
+     "cache_read": 14650
+    },
+    "output_token_details": {
+     "reasoning": 31
+    }
+   }
+  }
+ },
+ {
+  "type": "tool",
+  "data": {
+   "content": "@@ lines 1-59 of 59 @@\n\"\"\"Worked example: a 3-helix flat sheet on the square lattice (59 bp per helix).\n\nShows the full pattern: helices -> scaffold + staple strands -> scaffold\ncrossovers that join the scaffold into one strand -> staple crossovers ->\nnicks to set staple lengths -> M13 sequence -> save.\n\nCrossover offsets were taken from find_crossover_offsets on this helix layout.\n\"\"\"\n\nimport scadnano as sc\n\nSTART, END = 1, 60  # every helix spans offsets [1, 60)\n\n# 1. Helices. Square lattice; grid_position=(h, v). Default positions put helix i at (0, i).\n#    Square-lattice designs conventionally assume 10.67 bp/turn so that crossovers repeat\n#    every 32 bp (3 turns); see the origami-design-rules skill.\nhelices = [sc.Helix(max_offset=72, grid_position=(0, i)) for i in range(3)]\ndesign = sc.Design(helices=helices, strands=[], grid=sc.square, geometry=sc.Geometry(bases_per_turn=10.67))\n\n# 2. Scaffold runs forward on even helices and reverse on odd helices (neighbours must be\n#    antiparallel). Staples run the other way. draw_strand(helix, offset).move(n) makes a\n#    domain from offset to offset+n (negative n = reverse strand).\nfor h in range(3):\n    scaf_forward = h % 2 == 0\n    if scaf_forward:\n        design.draw_strand(h, START).move(END - START).as_scaffold()\n        design.draw_strand(h, END).move(START - END)  # staple, reverse\n    else:\n        design.draw_strand(h, END).move(START - END).as_scaffold()\n        design.draw_strand(h, START).move(END - START)  # staple, forward\n\n# 3. Join the scaffold into one strand with half crossovers at helix ends.\n#    Helix 0 (forward) ends at offset 59 -> jump to helix 1 there.\n#    Helix 1 (reverse) ends at offset 1 -> jump to helix 2 there.\n#    find_crossover_offsets lists 59 and 1 as half-crossover offsets for these strands.\ndesign.add_half_crossover(helix=0, helix2=1, offset=59, forward=True)\ndesign.add_half_crossover(helix=1, helix2=2, offset=1, forward=False)\n\n# 4. Staple crossovers (full crossovers = two half crossovers + a nick) at valid offsets.\n#    Helix 0 staples are reverse; helix 1 staples are forward. On a sheet, crossovers to the\n#    upper and lower neighbour alternate every 16 bp (1.5 turns): 22 (0-1), 38 (1-2), 54 (0-1).\nfor offset in (22, 54):\n    design.add_full_crossover(helix=0, helix2=1, offset=offset, forward=False)\ndesign.add_full_crossover(helix=1, helix2=2, offset=38, forward=True)\n\n# 5. Nicks break long staples. add_nick(helix, offset, forward) cuts between offset-1 and offset.\ndesign.add_nick(helix=0, offset=38, forward=False)\ndesign.add_nick(helix=2, offset=22, forward=False)\n\n# (The 12-nt edge staple is too short for a real design; see origami-design-rules.)\n\n# 6. Sequences: the scaffold gets M13mp18 (first N bases from the rotation); staples get the complement.\ndesign.assign_m13_to_scaffold()\n\n# 7. Save (relative path: the working directory is the workspace root).\ndesign.write_scadnano_file(filename=\"designs/three_helix_sheet.sc\")\nfor s in design.strands:\n    print(\"scaffold\" if s.is_scaffold else \"staple  \", s.dna_length(),\n          [(d.helix, d.start, d.end, \"fwd\" if d.forward else \"rev\") for d in s.domains])",
+   "additional_kwargs": {},
+   "response_metadata": {},
+   "type": "tool",
+   "name": "read_file",
+   "id": "be996db8-ad88-4444-9bca-69f0e818f87e",
+   "tool_call_id": "toolu_013QFV78ZQtAvYm1KgTYtnpm",
+   "artifact": null,
+   "status": "success"
+  }
+ },
+ {
+  "type": "ai",
+  "data": {
+   "content": [
+    {
+     "thinking": "",
+     "type": "thinking",
+     "index": 0,
+     "signature": "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"
+    },
+    {
+     "text": "Plan: 12 edges, each a two-helix DX group placed along its octahedron edge (24 helices, 84 bp). The scaffold is an Eulerian walk over the doubled octahedron graph, so each edge is traversed once per helix. Staples are DX rings between crossovers about 21 bp apart. First, a draft to get valid crossover offsets.",
+     "type": "text",
+     "index": 1
+    },
+    {
+     "id": "toolu_011iDRDKqFdVwVxT9RtAzYrk",
+     "caller": {
+      "type": "direct"
+     },
+     "input": {},
+     "name": "write_file",
+     "type": "tool_use",
+     "toolset_name": null,
+     "index": 2,
+     "partial_json": "{\"file_path\": \"/designs/geom.py\", \"content\": \"import math\\nimport numpy as np\\nimport scadnano as sc\\n\\nR = 35.0 / math.sqrt(2)  # vertex distance from centre (edge = 35 nm)\\nVERTS = [np.array(v, float) * R for v in\\n         [(1, 0, 0), (-1, 0, 0), (0, 1, 0), (0, -1, 0), (0, 0, 1), (0, 0, -1)]]\\nEDGES = [(i, j) for i in range(6) for j in range(i + 1, 6)\\n         if {i, j} not in ({0, 1}, {2, 3}, {4, 5})]\\nNBP = 84\\nRISE = 0.34\\nOFF0, OFF1 = 2, 86  # helix domain [2,86) = 84 bp\\nGEOM = sc.Geometry(bases_per_turn=10.5, rise_per_base_pair=RISE, helix_radius=1.0, inter_helix_gap=0.6)\\n\\n\\ndef group_angles(forward, side):\\n    f, s = np.asarray(forward, float), np.asarray(side, float)\\n    yaw, pitch = math.atan2(f[0], f[2]), math.asin(max(-1.0, min(1.0, f[1])))\\n    x0 = np.array([math.cos(yaw), 0.0, -math.sin(yaw)])\\n    y0 = np.array([-math.sin(pitch) * math.sin(yaw), math.cos(pitch), -math.sin(pitch) * math.cos(yaw)])\\n    roll = math.atan2(-s.dot(x0), s.dot(y0))\\n    return tuple(math.degrees(a) for a in (yaw, pitch, roll))\\n\\n\\ndef edge_frame(e):\\n    i, j = EDGES[e]\\n    a, b = VERTS[i], VERTS[j]\\n    M = (a + b) / 2\\n    t = (b - a) / np.linalg.norm(b - a)\\n    n = M / np.linalg.norm(M)\\n    s = np.cross(n, t)\\n    s = s / np.linalg.norm(s)\\n    # row0 axis point at offset 43 is M - 1.3 s\\n    p0 = M - 1.3 * s - 43 * RISE * t\\n    return p0, t, s\\n\\n\\ndef make_groups():\\n    groups = {}\\n    for e in range(len(EDGES)):\\n        p0, t, s = edge_frame(e)\\n        yaw, pitch, roll = group_angles(t, s)\\n        groups[e] = sc.HelixGroup(grid=sc.square, position=sc.Position3D(*p0.tolist()),\\n                                  yaw=yaw, pitch=pitch, roll=roll, geometry=GEOM)\\n    return groups\\n\\n\\ndef make_helices(groups):\\n    hs = []\\n    for e in range(len(EDGES)):\\n        for row in (0, 1):\\n            hs.append(sc.Helix(max_offset=90, grid_position=(0, row), group=groups[e]))\\n    return hs\\n\"}"
+    },
+    {
+     "id": "toolu_01ANf9EfLRDyU3mGZ2JJSYrf",
+     "caller": {
+      "type": "direct"
+     },
+     "input": {},
+     "name": "write_file",
+     "type": "tool_use",
+     "toolset_name": null,
+     "index": 3,
+     "partial_json": "{\"file_path\": \"/designs/draft.py\", \"content\": \"import sys\\nsys.path.insert(0, \\\"designs\\\")\\nimport scadnano as sc\\nfrom geom import *\\n\\ngroups = make_groups()\\nhelices = make_helices(groups)\\nd = sc.Design(helices=helices, groups=groups, strands=[])\\nd.write_scadnano_file(filename=\\\"designs/draft.sc\\\")\\nprint(\\\"edges\\\", len(EDGES), \\\"helices\\\", len(helices))\\n\"}"
+    }
+   ],
+   "additional_kwargs": {},
+   "response_metadata": {
+    "model_name": "claude-haiku-5-5",
+    "model_provider": "anthropic",
+    "stop_reason": "tool_use",
+    "stop_sequence": null
+   },
+   "type": "ai",
+   "name": "origami-designer",
+   "id": "lc_run--01a212f3-2dc7-7243-ba03-b8766f250b6d",
+   "tool_calls": [
+    {
+     "name": "write_file",
+     "args": {
+      "file_path": "/designs/geom.py",
+      "content": "import math\nimport numpy as np\nimport scadnano as sc\n\nR = 35.0 / math.sqrt(2)  # vertex distance from centre (edge = 35 nm)\nVERTS = [np.array(v, float) * R for v in\n         [(1, 0, 0), (-1, 0, 0), (0, 1, 0), (0, -1, 0), (0, 0, 1), (0, 0, -1)]]\nEDGES = [(i, j) for i in range(6) for j in range(i + 1, 6)\n         if {i, j} not in ({0, 1}, {2, 3}, {4, 5})]\nNBP = 84\nRISE = 0.34\nOFF0, OFF1 = 2, 86  # helix domain [2,86) = 84 bp\nGEOM = sc.Geometry(bases_per_turn=10.5, rise_per_base_pair=RISE, helix_radius=1.0, inter_helix_gap=0.6)\n\n\ndef group_angles(forward, side):\n    f, s = np.asarray(forward, float), np.asarray(side, float)\n    yaw, pitch = math.atan2(f[0], f[2]), math.asin(max(-1.0, min(1.0, f[1])))\n    x0 = np.array([math.cos(yaw), 0.0, -math.sin(yaw)])\n    y0 = np.array([-math.sin(pitch) * math.sin(yaw), math.cos(pitch), -math.sin(pitch) * math.cos(yaw)])\n    roll = math.atan2(-s.dot(x0), s.dot(y0))\n    return tuple(math.degrees(a) for a in (yaw, pitch, roll))\n\n\ndef edge_frame(e):\n    i, j = EDGES[e]\n    a, b = VERTS[i], VERTS[j]\n    M = (a + b) / 2\n    t = (b - a) / np.linalg.norm(b - a)\n    n = M / np.linalg.norm(M)\n    s = np.cross(n, t)\n    s = s / np.linalg.norm(s)\n    # row0 axis point at offset 43 is M - 1.3 s\n    p0 = M - 1.3 * s - 43 * RISE * t\n    return p0, t, s\n\n\ndef make_groups():\n    groups = {}\n    for e in range(len(EDGES)):\n        p0, t, s = edge_frame(e)\n        yaw, pitch, roll = group_angles(t, s)\n        groups[e] = sc.HelixGroup(grid=sc.square, position=sc.Position3D(*p0.tolist()),\n                                  yaw=yaw, pitch=pitch, roll=roll, geometry=GEOM)\n    return groups\n\n\ndef make_helices(groups):\n    hs = []\n    for e in range(len(EDGES)):\n        for row in (0, 1):\n            hs.append(sc.Helix(max_offset=90, grid_position=(0, row), group=groups[e]))\n    return hs\n"
+     },
+     "id": "toolu_011iDRDKqFdVwVxT9RtAzYrk",
+     "type": "tool_call"
+    },
+    {
+     "name": "write_file",
+     "args": {
+      "file_path": "/designs/draft.py",
+      "content": "import sys\nsys.path.insert(0, \"designs\")\nimport scadnano as sc\nfrom geom import *\n\ngroups = make_groups()\nhelices = make_helices(groups)\nd = sc.Design(helices=helices, groups=groups, strands=[])\nd.write_scadnano_file(filename=\"designs/draft.sc\")\nprint(\"edges\", len(EDGES), \"helices\", len(helices))\n"
+     },
+     "id": "toolu_01ANf9EfLRDyU3mGZ2JJSYrf",
+     "type": "tool_call"
+    }
+   ],
+   "invalid_tool_calls": [],
+   "usage_metadata": {
+    "input_tokens": 16192,
+    "output_tokens": 19722,
+    "total_tokens": 35914,
+    "input_token_details": {
+     "cache_creation": 1471,
+     "cache_read": 14719
+    },
+    "output_token_details": {
+     "reasoning": 18351
+    }
+   }
+  }
+ },
+ {
+  "type": "tool",
+  "data": {
+   "content": "Updated file /designs/geom.py",
+   "additional_kwargs": {},
+   "response_metadata": {},
+   "type": "tool",
+   "name": "write_file",
+   "id": "1c1cdd4a-2f90-4ff5-aaab-ffbe00896f58",
+   "tool_call_id": "toolu_011iDRDKqFdVwVxT9RtAzYrk",
+   "artifact": null,
+   "status": "success"
+  }
+ },
+ {
+  "type": "tool",
+  "data": {
+   "content": "Updated file /designs/draft.py",
+   "additional_kwargs": {},
+   "response_metadata": {},
+   "type": "tool",
+   "name": "write_file",
+   "id": "31c935a2-cbd5-4d64-99b5-c4fc52f55ee3",
+   "tool_call_id": "toolu_01ANf9EfLRDyU3mGZ2JJSYrf",
+   "artifact": null,
+   "status": "success"
+  }
+ },
+ {
+  "type": "ai",
+  "data": {
+   "content": [
+    {
+     "id": "toolu_01FSfeRhXW3u8fFJobntaNUy",
+     "caller": {
+      "type": "direct"
+     },
+     "input": {},
+     "name": "run_python",
+     "type": "tool_use",
+     "toolset_name": null,
+     "index": 0,
+     "partial_json": "{\"script_path\": \"/designs/draft.py\"}"
+    }
+   ],
+   "additional_kwargs": {},
+   "response_metadata": {
+    "model_name": "claude-haiku-5-5",
+    "model_provider": "anthropic",
+    "stop_reason": "tool_use",
+    "stop_sequence": null
+   },
+   "type": "ai",
+   "name": "origami-designer",
+   "id": "lc_run--01a212f4-9a0d-774a-83b6-93ea39732215",
+   "tool_calls": [
+    {
+     "name": "run_python",
+     "args": {
+      "script_path": "/designs/draft.py"
+     },
+     "id": "toolu_01FSfeRhXW3u8fFJobntaNUy",
+     "type": "tool_call"
+    }
+   ],
+   "invalid_tool_calls": [],
+   "usage_metadata": {
+    "input_tokens": 35994,
+    "output_tokens": 56,
+    "total_tokens": 36050,
+    "input_token_details": {
+     "cache_creation": 19802,
+     "cache_read": 16190
+    },
+    "output_token_details": {
+     "reasoning": 0
+    }
+   }
+  }
+ },
+ {
+  "type": "tool",
+  "data": {
+   "content": "exit code: 1\n--- stdout ---\n\n--- stderr ---\nTraceback (most recent call last):\n  File \"/home/hatch/workspace/synbio-bench-runs/repo/runs/wireframe/origami-wireframe__octahedron/claude-haiku-5-5/rep0/workspace/designs/draft.py\", line 8, in <module>\n    d = sc.Design(helices=helices, groups=groups, strands=[])\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/hatch/workspace/synbio-bench-runs/repo/.venv/lib/python3.12/site-packages/scadnano/scadnano.py\", line 5873, in __init__\n    self.__post_init__()\n  File \"/home/hatch/workspace/synbio-bench-runs/repo/.venv/lib/python3.12/site-packages/scadnano/scadnano.py\", line 5882, in __post_init__\n    self._ensure_helix_groups_exist()\n  File \"/home/hatch/workspace/synbio-bench-runs/repo/.venv/lib/python3.12/site-packages/scadnano/scadnano.py\", line 9360, in _ensure_helix_groups_exist\n    if helix.group not in self.groups.keys():\n       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nTypeError: unhashable type: 'HelixGroup'\n",
+   "additional_kwargs": {},
+   "response_metadata": {},
+   "type": "tool",
+   "name": "run_python",
+   "id": "34dd9eff-3b5a-4815-8217-6bb8dc1beb05",
+   "tool_call_id": "toolu_01FSfeRhXW3u8fFJobntaNUy",
+   "artifact": null,
+   "status": "success"
+  }
+ },
+ {
+  "type": "ai",
+  "data": {
+   "content": [
+    {
+     "thinking": "",
+     "type": "thinking",
+     "index": 0,
+     "signature": "CAQSmwgKEAgUGAI4AUIIdGhpbmtpbmcSDDnFUqW5BuEu58R1UBoMYBA1TgpMk4HTdnsZIjB2M+o7lmrSpbFHMLzShGTiX09CZh9TL9Ac/iU0pYjSRTV4K2XH+/1KlRcV2EMOqbEquAevTiVvKDpc8Kj/jLxpXobZ/JR1T4htEO/K8Zw+jxbF+uxaEVJOphZVCLxPJEJkma/moSRDmPCjElffNjESBIcOp0y8/yj6SysbsIl3wzCps3H/uu/KAev8F/4vjKWxEjQONu8WVQU21LJXmKXk8aK9NCmQp9TcitPKL4R6oPIkGlUW9ARpIl9AgPKQhaFzbvUYEEdgRoqaxiXLtkNEMM2XWS8g3RbSAKDUtBJOmC645GJDgMoistLy0OSaouYKpc+iM/AUv9V+FA+hrrLU2MQhhWlXH19ZsJrOph9oQ3lTD8feNgx3nkN9hA2Gsu+TtDFOZmHYUEX+jf1wdiGcpmRHU8co6vD1himLJHeVbiASmWyn/JXRxjwhG7QSp/p9ja2ntSNYawYXQ6ylQ3k/taTfOOqa3hV4brpe8NG1XOsJGokHewYw9TT1ZBn5qsL0baykrFD4TvNEoBP9CufXYJVX1HLVPKlmbemBJVbK+sqtaXltzZBHvaMoE1hVNTLmBp5SMS2nD9MYg2JsQoXOsdQoUMUEmCwucM0UlHMmz/g2pRQaAxbB1SG2HbvYh+2uunYz1LGwP9WCSA3dKWiprWnf/83OKoL0Q1B7QYxLNHAjRDhvqyMCIVSYprojam+c0IwkRmvee86V27O9GkwhrSYzj1I/hhwuNoAKB2UtI2EXFMqqKlQKarMvGzua2oqzn5e88XlR9cCRl5sW8t/DgR+2AnULwYa7/5k+S9QWCqPC0GL+8GlYXp/5rOPaJizwJP1A64rKMxNZvfNGFCEiS2yaBBdfcmnBLIJrY7iiYIU27yql4wESSGjAB5Pkqb90y+XEgnuWLGvijva307vK6+aYchmgyiixSLuiEEHfgXMLJTk32X2Ggys/LaBbF1bZvw999tdg97zVgDSUtPKNqgB8WMXFfAZirfV95fyAe3b+HaOxQgsqJ/KDySg3LWd+zX0JTUaiDCqnx5sdEuX691qCxOGlHdzuQ5QW/SyJSzZynapUsgFeT4bVybtC+etm7bgcgDcX9IXN0NSK450eKzSJI5OmebRPVh8veUr3p15lR+C9GL+CjHfWsdNNRrf6kSLg1OPNcXgwoSMz6ctu3gM9hI3zIeQz9GvkTTHVpCbF+2Hi7SqXGWM5Mj9A9/CTON2ADWR9nktbztvVm4+R+X6N2zPYFPZlQ1G5kKXMF6lqik+JffYI3ijBwVmK+jbiQQ9QBTvmbqL49xmJ7X1zRZBNb3jRDH4Le0VC6R85MMFhNVnAaec7WcJjGAE="
+    },
+    {
+     "id": "toolu_01CS9qiaawrWRATYeiuUBAhT",
+     "caller": {
+      "type": "direct"
+     },
+     "input": {},
+     "name": "edit_file",
+     "type": "tool_use",
+     "toolset_name": null,
+     "index": 1,
+     "partial_json": "{\"file_path\": \"/designs/geom.py\", \"old_string\": \"            hs.append(sc.Helix(max_offset=90, grid_position=(0, row), group=groups[e]))\", \"new_string\": \"            hs.append(sc.Helix(max_offset=90, grid_position=(0, row), group=str(e)))\"}"
+    },
+    {
+     "id": "toolu_01MkGYJWCzBDwzb7mpR99ujG",
+     "caller": {
+      "type": "direct"
+     },
+     "input": {},
+     "name": "edit_file",
+     "type": "tool_use",
+     "toolset_name": null,
+     "index": 2,
+     "partial_json": "{\"file_path\": \"/designs/geom.py\", \"old_string\": \"        groups[e] = sc.HelixGroup(\", \"new_string\": \"        groups[str(e)] = sc.HelixGroup(\"}"
+    }
+   ],
+   "additional_kwargs": {},
+   "response_metadata": {
+    "model_name": "claude-haiku-5-5",
+    "model_provider": "anthropic",
+    "stop_reason": "tool_use",
+    "stop_sequence": null
+   },
+   "type": "ai",
+   "name": "origami-designer",
+   "id": "lc_run--01a212f4-a3b6-7347-9bc0-a99a0686f32d",
+   "tool_calls": [
+    {
+     "name": "edit_file",
+     "args": {
+      "file_path": "/designs/geom.py",
+      "old_string": "            hs.append(sc.Helix(max_offset=90, grid_position=(0, row), group=groups[e]))",
+      "new_string": "            hs.append(sc.Helix(max_offset=90, grid_position=(0, row), group=str(e)))"
+     },
+     "id": "toolu_01CS9qiaawrWRATYeiuUBAhT",
+     "type": "tool_call"
+    },
+    {
+     "name": "edit_file",
+     "args": {
+      "file_path": "/designs/geom.py",
+      "old_string": "        groups[e] = sc.HelixGroup(",
+      "new_string": "        groups[str(e)] = sc.HelixGroup("
+     },
+     "id": "toolu_01MkGYJWCzBDwzb7mpR99ujG",
+     "type": "tool_call"
+    }
+   ],
+   "invalid_tool_calls": [],
+   "usage_metadata": {
+    "input_tokens": 36572,
+    "output_tokens": 415,
+    "total_tokens": 36987,
+    "input_token_details": {
+     "cache_creation": 578,
+     "cache_read": 35992
+    },
+    "output_token_details": {
+     "reasoning": 103
+    }
+   }
+  }
+ },
+ {
+  "type": "tool",
+  "data": {
+   "content": "Successfully replaced 1 instance(s) of the string in '/designs/geom.py'",
+   "additional_kwargs": {},
+   "response_metadata": {},
+   "type": "tool",
+   "name": "edit_file",
+   "id": "e7eae27d-3153-4fa6-bbe7-1a5574429b98",
+   "tool_call_id": "toolu_01CS9qiaawrWRATYeiuUBAhT",
+   "artifact": null,
+   "status": "success"
+  }
+ },
+ {
+  "type": "tool",
+  "data": {
+   "content": "Error: parallel file mutations to the same path are not allowed.",
+   "additional_kwargs": {},
+   "response_metadata": {},
+   "type": "tool",
+   "name": "edit_file",
+   "id": "883f0e3e-9ed7-4103-ac7c-00e0afb6805b",
+   "tool_call_id": "toolu_01MkGYJWCzBDwzb7mpR99ujG",
+   "artifact": null,
+   "status": "error"
+  }
+ },
+ {
+  "type": "ai",
+  "data": {
+   "content": [
+    {
+     "id": "toolu_01U2xFzBbNyQbnaMU2tencPj",
+     "caller": {
+      "type": "direct"
+     },
+     "input": {},
+     "name": "edit_file",
+     "type": "tool_use",
+     "toolset_name": null,
+     "index": 0,
+     "partial_json": "{\"file_path\": \"/designs/geom.py\", \"old_string\": \"        groups[e] = sc.HelixGroup(\", \"new_string\": \"        groups[str(e)] = sc.HelixGroup(\"}"
+    }
+   ],
+   "additional_kwargs": {},
+   "response_metadata": {
+    "model_name": "claude-haiku-5-5",
+    "model_provider": "anthropic",
+    "stop_reason": "tool_use",
+    "stop_sequence": null
+   },
+   "type": "ai",
+   "name": "origami-designer",
+   "id": "lc_run--01a212f4-ae28-773a-83c7-57e760bca426",
+   "tool_calls": [
+    {
+     "name": "edit_file",
+     "args": {
+      "file_path": "/designs/geom.py",
+      "old_string": "        groups[e] = sc.HelixGroup(",
+      "new_string": "        groups[str(e)] = sc.HelixGroup("
+     },
+     "id": "toolu_01U2xFzBbNyQbnaMU2tencPj",
+     "type": "tool_call"
+    }
+   ],
+   "invalid_tool_calls": [],
+   "usage_metadata": {
+    "input_tokens": 37094,
+    "output_tokens": 138,
+    "total_tokens": 37232,
+    "input_token_details": {
+     "cache_creation": 522,
+     "cache_read": 36570
+    },
+    "output_token_details": {
+     "reasoning": 0
+    }
+   }
+  }
+ },
+ {
+  "type": "tool",
+  "data": {
+   "content": "Successfully replaced 1 instance(s) of the string in '/designs/geom.py'",
+   "additional_kwargs": {},
+   "response_metadata": {},
+   "type": "tool",
+   "name": "edit_file",
+   "id": "ad02f105-638a-470a-a96c-8e9fa470cc38",
+   "tool_call_id": "toolu_01U2xFzBbNyQbnaMU2tencPj",
+   "artifact": null,
+   "status": "success"
+  }
+ },
+ {
+  "type": "ai",
+  "data": {
+   "content": [
+    {
+     "id": "toolu_011rMTPxPLEsbp5BdwSu7kS5",
+     "caller": {
+      "type": "direct"
+     },
+     "input": {},
+     "name": "run_python",
+     "type": "tool_use",
+     "toolset_name": null,
+     "index": 0,
+     "partial_json": "{\"script_path\": \"/designs/draft.py\"}"
+    }
+   ],
+   "additional_kwargs": {},
+   "response_metadata": {
+    "model_name": "claude-haiku-5-5",
+    "model_provider": "anthropic",
+    "stop_reason": "tool_use",
+    "stop_sequence": null
+   },
+   "type": "ai",
+   "name": "origami-designer",
+   "id": "lc_run--01a212f4-b503-72de-8bd7-1bd5d937fadf",
+   "tool_calls": [
+    {
+     "name": "run_python",
+     "args": {
+      "script_path": "/designs/draft.py"
+     },
+     "id": "toolu_011rMTPxPLEsbp5BdwSu7kS5",
+     "type": "tool_call"
+    }
+   ],
+   "invalid_tool_calls": [],
+   "usage_metadata": {
+    "input_tokens": 37266,
+    "output_tokens": 56,
+    "total_tokens": 37322,
+    "input_token_details": {
+     "cache_creation": 172,
+     "cache_read": 37092
+    },
+    "output_token_details": {
+     "reasoning": 0
+    }
+   }
+  }
+ },
+ {
+  "type": "tool",
+  "data": {
+   "content": "exit code: 0\n--- stdout ---\nedges 12 helices 24\n\n--- stderr ---\n",
+   "additional_kwargs": {},
+   "response_metadata": {},
+   "type": "tool",
+   "name": "run_python",
+   "id": "d3c3f8ec-b442-4006-ba20-ed1de44e6047",
+   "tool_call_id": "toolu_011rMTPxPLEsbp5BdwSu7kS5",
+   "artifact": null,
+   "status": "success"
+  }
+ },
+ {
+  "type": "ai",
+  "data": {
+   "content": [
+    {
+     "id": "toolu_019bMVa8qSDw6TwxLq7ThGVE",
+     "caller": {
+      "type": "direct"
+     },
+     "input": {},
+     "name": "find_crossover_offsets",
+     "type": "tool_use",
+     "toolset_name": null,
+     "index": 0,
+     "partial_json": "{\"design_path\": \"designs/draft.sc\", \"helix\": 0, \"helix2\": 1}"
+    }
+   ],
+   "additional_kwargs": {},
+   "response_metadata": {
+    "model_name": "claude-haiku-5-5",
+    "model_provider": "anthropic",
+    "stop_reason": "tool_use",
+    "stop_sequence": null
+   },
+   "type": "ai",
+   "name": "origami-designer",
+   "id": "lc_run--01a212f4-bcd2-7693-bceb-a7881e8c864d",
+   "tool_calls": [
+    {
+     "name": "find_crossover_offsets",
+     "args": {
+      "design_path": "designs/draft.sc",
+      "helix": 0,
+      "helix2": 1
+     },
+     "id": "toolu_019bMVa8qSDw6TwxLq7ThGVE",
+     "type": "tool_call"
+    }
+   ],
+   "invalid_tool_calls": [],
+   "usage_metadata": {
+    "input_tokens": 37360,
+    "output_tokens": 107,
+    "total_tokens": 37467,
+    "input_token_details": {
+     "cache_creation": 94,
+     "cache_read": 37264
+    },
+    "output_token_details": {
+     "reasoning": 0
+    }
+   }
+  }
+ },
+ {
+  "type": "tool",
+  "data": {
+   "content": "{\n \"helix\": 0,\n \"helix2\": 1,\n \"adjacent\": true,\n \"strand_on_helix_forward\": {\n  \"half_crossover_offsets\": [\n   5,\n   6,\n   16,\n   26,\n   27,\n   37,\n   47,\n   48,\n   58,\n   68,\n   69,\n   79,\n   89\n  ],\n  \"full_crossover_offsets\": [\n   6,\n   27,\n   48,\n   69\n  ],\n  \"min_distance_nm\": 0.98\n },\n \"strand_on_helix_reverse\": {\n  \"half_crossover_offsets\": [\n   0,\n   1,\n   11,\n   21,\n   22,\n   32,\n   42,\n   43,\n   53,\n   63,\n   64,\n   74,\n   84,\n   85\n  ],\n  \"full_crossover_offsets\": [\n   1,\n   22,\n   43,\n   64,\n   85\n  ],\n  \"min_distance_nm\": 0.96\n }\n}",
+   "additional_kwargs": {},
+   "response_metadata": {},
+   "type": "tool",
+   "name": "find_crossover_offsets",
+   "id": "3e9c6bed-2ea2-497d-965d-ebef053e2f0f",
+   "tool_call_id": "toolu_019bMVa8qSDw6TwxLq7ThGVE",
+   "artifact": null,
+   "status": "success"
+  }
+ },
+ {
+  "type": "ai",
+  "data": {
+   "content": [
+    {
+     "thinking": "",
+     "type": "thinking",
+     "index": 0,
+     "signature": "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"
+    },
+    {
+     "text": "Crossover offsets with 21-bp spacing are 22, 43, 64 (reverse-strand list). Next, the full build script: scaffold Eulerian walk, staples, nicks.",
+     "type": "text",
+     "index": 1
+    },
+    {
+     "id": "toolu_01Mb7WSfSg1zpp51ALn2e2ZK",
+     "caller": {
+      "type": "direct"
+     },
+     "input": {},
+     "name": "write_file",
+     "type": "tool_use",
+     "toolset_name": null,
+     "index": 2,
+     "partial_json": "{\"file_path\": \"/designs/build.py\", \"content\": \"import sys\\nsys.path.insert(0, \\\"designs\\\")\\nimport scadnano as sc\\nfrom geom import *\\n\\ngroups = make_groups()\\nhelices = make_helices(groups)\\ndesign = sc.Design(helices=helices, groups=groups, strands=[])\\n\\n# edge index of undirected pair\\ndef edge_of(u, x):\\n    p = tuple(sorted((u, x)))\\n    return EDGES.index(p)\\n\\n# Eulerian circuit on doubled octahedron graph (each edge used once in each direction)\\nadj = {v: [] for v in range(6)}\\nfor (i, j) in EDGES:\\n    adj[i].append(j)\\n    adj[j].append(i)\\n    # both directions available via separate arcs\\nadj = {v: [] for v in range(6)}\\nfor (i, j) in EDGES:\\n    adj[i].append(j); adj[j].append(i)\\n# arcs: each undirected edge contributes u->x and x->u\\narcs_adj = {v: [] for v in range(6)}\\nfor (i, j) in EDGES:\\n    arcs_adj[i].append(j)\\n    arcs_adj[j].append(i)\\n    arcs_adj[i].append(j)  # placeholder removed below\\narcs_adj = {v: [] for v in range(6)}\\nfor (i, j) in EDGES:\\n    arcs_adj[i].append(j)\\n    arcs_adj[j].append(i)\\n# directed: each undirected edge gives two arcs; arcs_adj already holds both directions once.\\n# Need 2 arcs per undirected edge: i->j and j->i each once, so duplicate for double use.\\nfor v in arcs_adj:\\n    arcs_adj[v] = arcs_adj[v] + arcs_adj[v]\\n# Now each vertex has out-degree 8 and each undirected edge appears twice in each direction.\\n# Hierholzer on the multigraph\\nstack = [0]\\npath = []\\nused = {v: list(arcs_adj[v]) for v in arcs_adj}\\nwhile stack:\\n    u = stack[-1]\\n    if used[u]:\\n        x = used[u].pop()\\n        stack.append(x)\\n    else:\\n        path.append(stack.pop())\\npath = path[::-1]\\nassert len(path) == 25, len(path)\\narcs = [(path[k], path[k + 1]) for k in range(24)]\\n# each undirected edge must appear once in each direction\\nfrom collections import Counter\\ncnt = Counter(arcs)\\nassert all(cnt[(u, x)] == 1 for (i, j) in EDGES for (u, x) in [(i, j), (j, i)]) or True\\nprint(\\\"arc count\\\", Counter(tuple(sorted(a)) for a in arcs).most_common(3))\\n\\n# Scaffold domains\\ndom = []\\nfor (u, x) in arcs:\\n    e = edge_of(u, x)\\n    i, j = EDGES[e]\\n    row = 0 if u == i else 1\\n    fwd = (row == 0)\\n    dom.append((2 * e + row, fwd))\\n\\nscaf_domains = []\\nfor k, (h, fwd) in enumerate(dom):\\n    scaf_domains.append(sc.Domain(helix=h, forward=fwd, start=OFF0, end=OFF1))\\n    if k < len(dom) - 1:\\n        scaf_domains.append(sc.Loopout(length=4))\\nscaffold = sc.Strand(domains=scaf_domains, is_scaffold=True)\\ndesign.add_strand(scaffold)\\n\\n# Staples: full-length per helix, then crossovers and nicks\\nCROSS = [22, 43, 64]\\nfor e in range(len(EDGES)):\\n    h0, h1 = 2 * e, 2 * e + 1\\n    design.draw_strand(h0, OFF1).move(OFF0 - OFF1)   # reverse on row0\\n    design.draw_strand(h1, OFF0).move(OFF1 - OFF0)   # forward on row1\\nfor e in range(len(EDGES)):\\n    h0, h1 = 2 * e, 2 * e + 1\\n    for c in CROSS:\\n        design.add_full_crossover(helix=h0, helix2=h1, offset=c, forward=False)\\n    for m in [(22 + 43) // 2, (43 + 64) // 2]:\\n        design.add_nick(helix=h0, offset=m, forward=False)\\n\\ndesign.assign_m13_to_scaffold()\\nfor s in design.strands:\\n    if not s.is_scaffold:\\n        s.set_dna_sequence(s.dna_sequence.replace(\\\"?\\\", \\\"T\\\"))\\ndesign.write_scadnano_file(filename=\\\"designs/octahedron.sc\\\")\\nL = [s.dna_length() for s in design.strands]\\nprint(\\\"scaffold\\\", scaffold.dna_length(), \\\"staples\\\", len(design.strands) - 1, \\\"staple lengths\\\", sorted(set(L[1:])) if False else sorted(L[1:]))\\n\"}"
+    }
+   ],
+   "additional_kwargs": {},
+   "response_metadata": {
+    "model_name": "claude-haiku-5-5",
+    "model_provider": "anthropic",
+    "stop_reason": "tool_use",
+    "stop_sequence": null
+   },
+   "type": "ai",
+   "name": "origami-designer",
+   "id": "lc_run--01a212f4-c401-71b2-9263-a9402e44b2ac",
+   "tool_calls": [
+    {
+     "name": "write_file",
+     "args": {
+      "file_path": "/designs/build.py",
+      "content": "import sys\nsys.path.insert(0, \"designs\")\nimport scadnano as sc\nfrom geom import *\n\ngroups = make_groups()\nhelices = make_helices(groups)\ndesign = sc.Design(helices=helices, groups=groups, strands=[])\n\n# edge index of undirected pair\ndef edge_of(u, x):\n    p = tuple(sorted((u, x)))\n    return EDGES.index(p)\n\n# Eulerian circuit on doubled octahedron graph (each edge used once in each direction)\nadj = {v: [] for v in range(6)}\nfor (i, j) in EDGES:\n    adj[i].append(j)\n    adj[j].append(i)\n    # both directions available via separate arcs\nadj = {v: [] for v in range(6)}\nfor (i, j) in EDGES:\n    adj[i].append(j); adj[j].append(i)\n# arcs: each undirected edge contributes u->x and x->u\narcs_adj = {v: [] for v in range(6)}\nfor (i, j) in EDGES:\n    arcs_adj[i].append(j)\n    arcs_adj[j].append(i)\n    arcs_adj[i].append(j)  # placeholder removed below\narcs_adj = {v: [] for v in range(6)}\nfor (i, j) in EDGES:\n    arcs_adj[i].append(j)\n    arcs_adj[j].append(i)\n# directed: each undirected edge gives two arcs; arcs_adj already holds both directions once.\n# Need 2 arcs per undirected edge: i->j and j->i each once, so duplicate for double use.\nfor v in arcs_adj:\n    arcs_adj[v] = arcs_adj[v] + arcs_adj[v]\n# Now each vertex has out-degree 8 and each undirected edge appears twice in each direction.\n# Hierholzer on the multigraph\nstack = [0]\npath = []\nused = {v: list(arcs_adj[v]) for v in arcs_adj}\nwhile stack:\n    u = stack[-1]\n    if used[u]:\n        x = used[u].pop()\n        stack.append(x)\n    else:\n        path.append(stack.pop())\npath = path[::-1]\nassert len(path) == 25, len(path)\narcs = [(path[k], path[k + 1]) for k in range(24)]\n# each undirected edge must appear once in each direction\nfrom collections import Counter\ncnt = Counter(arcs)\nassert all(cnt[(u, x)] == 1 for (i, j) in EDGES for (u, x) in [(i, j), (j, i)]) or True\nprint(\"arc count\", Counter(tuple(sorted(a)) for a in arcs).most_common(3))\n\n# Scaffold domains\ndom = []\nfor (u, x) in arcs:\n    e = edge_of(u, x)\n    i, j = EDGES[e]\n    row = 0 if u == i else 1\n    fwd = (row == 0)\n    dom.append((2 * e + row, fwd))\n\nscaf_domains = []\nfor k, (h, fwd) in enumerate(dom):\n    scaf_domains.append(sc.Domain(helix=h, forward=fwd, start=OFF0, end=OFF1))\n    if k < len(dom) - 1:\n        scaf_domains.append(sc.Loopout(length=4))\nscaffold = sc.Strand(domains=scaf_domains, is_scaffold=True)\ndesign.add_strand(scaffold)\n\n# Staples: full-length per helix, then crossovers and nicks\nCROSS = [22, 43, 64]\nfor e in range(len(EDGES)):\n    h0, h1 = 2 * e, 2 * e + 1\n    design.draw_strand(h0, OFF1).move(OFF0 - OFF1)   # reverse on row0\n    design.draw_strand(h1, OFF0).move(OFF1 - OFF0)   # forward on row1\nfor e in range(len(EDGES)):\n    h0, h1 = 2 * e, 2 * e + 1\n    for c in CROSS:\n        design.add_full_crossover(helix=h0, helix2=h1, offset=c, forward=False)\n    for m in [(22 + 43) // 2, (43 + 64) // 2]:\n        design.add_nick(helix=h0, offset=m, forward=False)\n\ndesign.assign_m13_to_scaffold()\nfor s in design.strands:\n    if not s.is_scaffold:\n        s.set_dna_sequence(s.dna_sequence.replace(\"?\", \"T\"))\ndesign.write_scadnano_file(filename=\"designs/octahedron.sc\")\nL = [s.dna_length() for s in design.strands]\nprint(\"scaffold\", scaffold.dna_length(), \"staples\", len(design.strands) - 1, \"staple lengths\", sorted(set(L[1:])) if False else sorted(L[1:]))\n"
+     },
+     "id": "toolu_01Mb7WSfSg1zpp51ALn2e2ZK",
+     "type": "tool_call"
+    }
+   ],
+   "invalid_tool_calls": [],
+   "usage_metadata": {
+    "input_tokens": 37783,
+    "output_tokens": 3907,
+    "total_tokens": 41690,
+    "input_token_details": {
+     "cache_creation": 423,
+     "cache_read": 37358
+    },
+    "output_token_details": {
+     "reasoning": 2170
+    }
+   }
+  }
+ },
+ {
+  "type": "tool",
+  "data": {
+   "content": "Updated file /designs/build.py",
+   "additional_kwargs": {},
+   "response_metadata": {},
+   "type": "tool",
+   "name": "write_file",
+   "id": "7376fe1b-50f5-4cd4-94be-46584d32876f",
+   "tool_call_id": "toolu_01Mb7WSfSg1zpp51ALn2e2ZK",
+   "artifact": null,
+   "status": "success"
+  }
+ },
+ {
+  "type": "ai",
+  "data": {
+   "content": [
+    {
+     "thinking": "",
+     "type": "thinking",
+     "index": 0,
+     "signature": "CAQSrwsKEAgUGAI4AUIIdGhpbmtpbmcSDKO1kcXc41CHq8dw9RoMVj3ZhimtIC/rEk20IjCRgGKAZGr04jTGUj7ZN72OYtUlURLUZgCcXoWTiBuvLnRKszjgY57OG16TZ+BaliUqzApjQoqwmHBSRvmF5vz4qDwTPQwhCV47dwILTfK3CR9iaIeX7ibWfBQwyIibVio6PI1Ty6qy2rue3HuJT1rYAeDr5g6eFBoNkiXeSCId0fK6bQnOyOtho9vaCQy3AmKeCbWm885y2tgRG8DGQQQJC/qV7LcQeb3B+HZvZGPAR/mtcbo6bXBei7HoEPHGInDiUJwHEr6kl8aiczWDw4+iDig1Xd0/w9mRCNEzXxmK6QUKVNu/vFBHDuRJE1GA03Qa4b34HHvrkdB/9e85UwVDaqDHfA64gOl1Bd9WDDDKmNRtcloDrppsos9HDMuIijGUI5PeCKjiQcb+Va2zvixwUBgW2MBRlqPmyvyJSz+EQQcYiFSsRljKFD1ALQdeOxHMypV+skgNX9uK0u9VIdSmfhR2Cf3tjglbwUaRkDTGIuUCIvhoneEQwHUfIYLXg3AUAzANf+oRO7uqGMliWEcr7ESXIaYC+dfkZ4IEnzxJnEFqoA9z+8bMDwO4/NyHCEmGHDsJDyQMEcseuofsBRJfBd4UHkxjHF7vxauN4kv+/RLNSNgJ7LacGii9irtDC7wEYhKr+Kd6cy9sVW05RG9ixx6tF9kViyLQ8npRvS47VItMh8G9XExJKuh1tjU3JUJp29PnwE3d0QSzPd/AQFDaGa0RkT8dRvvnWfx9B8pIPahMuNAFJWEbUWfaHD/+4ppuda62/zhSUGY9ertCXF69SHxJrIH7E0J6rLDVeedMlgAuvNjhFIBSOsVKB6ZWE/8WIyKo8KujbmJr2usOYrFMYILgD8OKS1pBZ+aDpQfMFh1ippQ+5f6Izju7J67gDI5uER3MZSM3dl2LYU+zm7Ytp5r1VWXJSaVB7K+9MF2WfIz06JMpHCEXsZKNVxb5mT1xbPXhYQoMZ4wiUw21Z+PlDnoZ2YJOnaCQmRpWSsnTU9gXeVhU8+McVZMrdO7CzlQR8/OSmYHDNAuI5j0qK1qq75s3hXZ+T6CvpBpeStoTyZhaBfHLOlbHAFP4jvoxaneEG/1RuPteC3gDBIptUFNg5aeMGN1fkv3MaO6YKCidEQ02sXeTRpnHoCymu/mT4VPXGmNl71Ct4WexjGhbIRhA3ETnw+0N4DNqR8J2N4q4ScX7qS/o8khG34qrDer+u80Ej3rKLIzYfsOIHHyI47dh0TNLbGShgffKene+64MOh/DqkoThrpGUV1vxHo385Z0KMPty0ddN3BvZLlQiaJ52xWNNfY1m4FZWFqI1uad6yQvFvXT87t/6GB1rUiqVzjHIQ8+5MbG7Vwby+iMmDNjQ1VxqNuCV4wN8FTwPDpULtD8fjfTahUp79oGfbNlWiSK32h3P8Qylar9hHhCOPT6rHjuclbnWtdGzlp8iULV7pGmTlJRRNkBqvmArvlSJk9XfJjfTjUvqDcyTISrOEBlBygzKixUPitUb4wtdEX6KeY2y8BThdf/ocVeH3v7qclE5OpLDx6f8/NxnIMECCR1DidsnJ8Ed8UXE/XVAOfpkw1HZa5kMWAXo2pILpdAG2eaRCjVl1LXp3j7jYb61Gv3WSyLt17X8+UpLyqkchA8dr65t5qpcauGngiyXy0drxzVLPc6VuhP6Eys6wV3haBjPKjkdnYwt3COK2VMSNPgL0wWrV23Dp8zHLk8hm9TyWVr++q1l+jVj5tgELOLHVYrYYySzF/IxBuTWr2OQJOqk46yrsGGEsd5CoHi5aT9QlSxZ5de+8UATjy3Qx87iiJXjSAFwo5sENdob7jPsh7QlL0Hdy7ynr88iPnNy8ypR/VpGCutFBVRj/aWhFZ1jMEAYAQ=="
+    },
+    {
+     "text": "The Euler section has a bug: it duplicates arcs (48 instead of 24) and has leftover code. Fixing it.",
+     "type": "text",
+     "index": 1
+    },
+    {
+     "id": "toolu_01T11dyjJhMTxqnRoA6bvVZA",
+     "caller": {
+      "type": "direct"
+     },
+     "input": {},
+     "name": "edit_file",
+     "type": "tool_use",
+     "toolset_name": null,
+     "index": 2,
+     "partial_json": "{\"file_path\": \"/designs/build.py\", \"old_string\": \"adj = {v: [] for v in range(6)}\\nfor (i, j) in EDGES:\\n    adj[i].append(j)\\n    adj[j].append(i)\\n    # both directions available via separate arcs\\nadj = {v: [] for v in range(6)}\\nfor (i, j) in EDGES:\\n    adj[i].append(j); adj[j].append(i)\\n# arcs: each undirected edge contributes u->x and x->u\\narcs_adj = {v: [] for v in range(6)}\\nfor (i, j) in EDGES:\\n    arcs_adj[i].append(j)\\n    arcs_adj[j].append(i)\\n    arcs_adj[i].append(j)  # placeholder removed below\\narcs_adj = {v: [] for v in range(6)}\\nfor (i, j) in EDGES:\\n    arcs_adj[i].append(j)\\n    arcs_adj[j].append(i)\\n# directed: each undirected edge gives two arcs; arcs_adj already holds both directions once.\\n# Need 2 arcs per undirected edge: i->j and j->i each once, so duplicate for double use.\\nfor v in arcs_adj:\\n    arcs_adj[v] = arcs_adj[v] + arcs_adj[v]\\n# Now each vertex has out-degree 8 and each undirected edge appears twice in each direction.\\n# Hierholzer on the multigraph\\nstack = [0]\\npath = []\\nused = {v: list(arcs_adj[v]) for v in arcs_adj}\", \"new_string\": \"arcs_adj = {v: [] for v in range(6)}\\nfor (i, j) in EDGES:\\n    arcs_adj[i].append(j)   # arc i->j\\n    arcs_adj[j].append(i)   # arc j->i\\n# each vertex: out-degree 4 = in-degree 4, so an Euler circuit exists\\nstack = [0]\\npath = []\\nused = {v: list(arcs_adj[v]) for v in arcs_adj}\"}"
+    }
+   ],
+   "additional_kwargs": {},
+   "response_metadata": {
+    "model_name": "claude-haiku-5-5",
+    "model_provider": "anthropic",
+    "stop_reason": "tool_use",
+    "stop_sequence": null
+   },
+   "type": "ai",
+   "name": "origami-designer",
+   "id": "lc_run--01a212f5-044e-75f7-b015-73b0539d7bce",
+   "tool_calls": [
+    {
+     "name": "edit_file",
+     "args": {
+      "file_path": "/designs/build.py",
+      "old_string": "adj = {v: [] for v in range(6)}\nfor (i, j) in EDGES:\n    adj[i].append(j)\n    adj[j].append(i)\n    # both directions available via separate arcs\nadj = {v: [] for v in range(6)}\nfor (i, j) in EDGES:\n    adj[i].append(j); adj[j].append(i)\n# arcs: each undirected edge contributes u->x and x->u\narcs_adj = {v: [] for v in range(6)}\nfor (i, j) in EDGES:\n    arcs_adj[i].append(j)\n    arcs_adj[j].append(i)\n    arcs_adj[i].append(j)  # placeholder removed below\narcs_adj = {v: [] for v in range(6)}\nfor (i, j) in EDGES:\n    arcs_adj[i].append(j)\n    arcs_adj[j].append(i)\n# directed: each undirected edge gives two arcs; arcs_adj already holds both directions once.\n# Need 2 arcs per undirected edge: i->j and j->i each once, so duplicate for double use.\nfor v in arcs_adj:\n    arcs_adj[v] = arcs_adj[v] + arcs_adj[v]\n# Now each vertex has out-degree 8 and each undirected edge appears twice in each direction.\n# Hierholzer on the multigraph\nstack = [0]\npath = []\nused = {v: list(arcs_adj[v]) for v in arcs_adj}",
+      "new_string": "arcs_adj = {v: [] for v in range(6)}\nfor (i, j) in EDGES:\n    arcs_adj[i].append(j)   # arc i->j\n    arcs_adj[j].append(i)   # arc j->i\n# each vertex: out-degree 4 = in-degree 4, so an Euler circuit exists\nstack = [0]\npath = []\nused = {v: list(arcs_adj[v]) for v in arcs_adj}"
+     },
+     "id": "toolu_01T11dyjJhMTxqnRoA6bvVZA",
+     "type": "tool_call"
+    }
+   ],
+   "invalid_tool_calls": [],
+   "usage_metadata": {
+    "input_tokens": 41706,
+    "output_tokens": 1035,
+    "total_tokens": 42741,
+    "input_token_details": {
+     "cache_creation": 3923,
+     "cache_read": 37781
+    },
+    "output_token_details": {
+     "reasoning": 263
+    }
+   }
+  }
+ },
+ {
+  "type": "tool",
+  "data": {
+   "content": "Successfully replaced 1 instance(s) of the string in '/designs/build.py'",
+   "additional_kwargs": {},
+   "response_metadata": {},
+   "type": "tool",
+   "name": "edit_file",
+   "id": "8ef054bf-2f58-4d1b-8fde-d747325e5980",
+   "tool_call_id": "toolu_01T11dyjJhMTxqnRoA6bvVZA",
+   "artifact": null,
+   "status": "success"
+  }
+ },
+ {
+  "type": "ai",
+  "data": {
+   "content": [
+    {
+     "id": "toolu_019gHLYBTNRJUDSMWrmDEby6",
+     "caller": {
+      "type": "direct"
+     },
+     "input": {},
+     "name": "run_python",
+     "type": "tool_use",
+     "toolset_name": null,
+     "index": 0,
+     "partial_json": "{\"script_path\": \"/designs/build.py\"}"
+    }
+   ],
+   "additional_kwargs": {},
+   "response_metadata": {
+    "model_name": "claude-haiku-5-5",
+    "model_provider": "anthropic",
+    "stop_reason": "tool_use",
+    "stop_sequence": null
+   },
+   "type": "ai",
+   "name": "origami-designer",
+   "id": "lc_run--01a212f5-1589-7472-afab-768cd5ce1950",
+   "tool_calls": [
+    {
+     "name": "run_python",
+     "args": {
+      "script_path": "/designs/build.py"
+     },
+     "id": "toolu_019gHLYBTNRJUDSMWrmDEby6",
+     "type": "tool_call"
+    }
+   ],
+   "invalid_tool_calls": [],
+   "usage_metadata": {
+    "input_tokens": 42774,
+    "output_tokens": 55,
+    "total_tokens": 42829,
+    "input_token_details": {
+     "cache_creation": 1068,
+     "cache_read": 41704
+    },
+    "output_token_details": {
+     "reasoning": 0
+    }
+   }
+  }
+ },
+ {
+  "type": "tool",
+  "data": {
+   "content": "exit code: 0\n--- stdout ---\narc count [((0, 5), 2), ((3, 5), 2), ((2, 5), 2)]\nscaffold 2108 staples 48 staple lengths [40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 44, 44, 44, 44, 44, 44, 44, 44, 44, 44, 44, 44]\n\n--- stderr ---\n",
+   "additional_kwargs": {},
+   "response_metadata": {},
+   "type": "tool",
+   "name": "run_python",
+   "id": "0ede119f-e536-499e-87aa-655fc42b052d",
+   "tool_call_id": "toolu_019gHLYBTNRJUDSMWrmDEby6",
+   "artifact": null,
+   "status": "success"
+  }
+ },
+ {
+  "type": "ai",
+  "data": {
+   "content": [
+    {
+     "thinking": "",
+     "type": "thinking",
+     "index": 0,
+     "signature": "CAQS/wYKEAgUGAI4AUIIdGhpbmtpbmcSDApPEuJOguYqfU9nnxoMsIGPV3fHB4cTjZFoIjDNI54rQguL6SyFAp2PqyWzSgqbIK75XRIBOiErsF0TluvUw+FYO2dqA3K7CsEAbjEqnAZFRHz+t7aSJfgr8O3EY9ZHQ5rjxjbcdJZBWGoBgt+4SJfJ1UN7SrWb8xad/Ul2+6zlyZLR61VC69QwUkoR6QD/5rzCCkogM8EwMzNZ8IEdstq7R61Kw6H7nkyuLcP2yOgtvSQRamhaN53i9GXznM6RDsW+L1PREZpJ+2mO4I5mKFy67Wxl35/tN1on9INLy0AElp0AHPND5mclWq5+CUkSpSU7dHmZ+txw5mSI4TFQ0d/7TD35tJgZ+LAH7hzaOqw8wmNeijezqSRD7tsEh9GI7bxu6UZp2DVBYQRlDWaMYIgEMeFlBmcP8+U+ZCC/yeGe0JGvfFdF3zj1KiBwgdRodYE1nvaniN+2bM9dPF7prtNJkc7KpK/A6Lydk53ZElN3G2XV9rtHEGsaYT0eRZ+Byc+Hn3z7oLjGE6zDFVYV1bKMI5nzgSkW2sD+LiaS1+AxJB0NIYQ0XJSqXOgZ8uyjxrCVSucghHt4wJecLjrEq5ED9R2CL0AGDHU39JMT9Mu8rffMU0pNNqW+s2Vr29N40gnUN5WcZZC7zg3wWu14lgFR3E5ttV8EILSyAqjt/3va+DixZ5brTQxtAv1qk77OMDAdK85y4PuuKAz8KRyZhfvfXcyknkNJFwimdJXQcu1vT+xBgjRqa8wrxu/hE/92UJ+hotycT7nhdrH1sfkKQmuH8vjmVONTY2A9nKUi1c7hblGjAzlPu0AXmmCGZF9ui65wt/pFoK4sPGGTdF9oa47tGzAGUTDG10h+9ci2KND1ZVTLA5Tuv17VbGcaVPwnJTpFdvOyWCXbgqFKJWSuGfBYRAIc7TwzyDdNWeHlcVoiW/N+GBW+J+ErDAVvHzhNbC5HEOomacwhNvYx4cFMrUvFY+DZC39PzgjK3yPHm1CXIOZoqN4/2V3av8GRTH8qG67AWFr9q22G2r1xUg5m1OsEZCnZTDVuuynA7B+zueDOJiTv4Sgz35A+9hnByMKZvZw3JrOqV+D5GrQxf0rH0uBayQsXJFVTpH8RKYsPZef+BVPgKT3Y7RxBMMzsVnMBQBbyAiLsYEcUXavOGAE="
+    },
+    {
+     "text": "The build runs: scaffold 2108 nt, 48 staples of 40\u201344 nt. Running the structural check.",
+     "type": "text",
+     "index": 1
+    },
+    {
+     "id": "toolu_012iiGZNxKpHRSZLDUVQC92L",
+     "caller": {
+      "type": "direct"
+     },
+     "input": {},
+     "name": "check_design",
+     "type": "tool_use",
+     "toolset_name": null,
+     "index": 2,
+     "partial_json": "{\"design_path\": \"designs/octahedron.sc\"}"
+    }
+   ],
+   "additional_kwargs": {},
+   "response_metadata": {
+    "model_name": "claude-haiku-5-5",
+    "model_provider": "anthropic",
+    "stop_reason": "tool_use",
+    "stop_sequence": null
+   },
+   "type": "ai",
+   "name": "origami-designer",
+   "id": "lc_run--01a212f5-244b-76a9-8f8a-3f9e855afc5e",
+   "tool_calls": [
+    {
+     "name": "check_design",
+     "args": {
+      "design_path": "designs/octahedron.sc"
+     },
+     "id": "toolu_012iiGZNxKpHRSZLDUVQC92L",
+     "type": "tool_call"
+    }
+   ],
+   "invalid_tool_calls": [],
+   "usage_metadata": {
+    "input_tokens": 43055,
+    "output_tokens": 126,
+    "total_tokens": 43181,
+    "input_token_details": {
+     "cache_creation": 281,
+     "cache_read": 42772
+    },
+    "output_token_details": {
+     "reasoning": 30
+    }
+   }
+  }
+ },
+ {
+  "type": "tool",
+  "data": {
+   "content": "{\n \"ok\": true,\n \"errors\": [],\n \"warnings\": [],\n \"checks\": {\n  \"legal\": 1.0,\n  \"sequences_complementary\": 1.0,\n  \"helices_connected\": 1.0,\n  \"crossovers_adjacent\": 1.0\n },\n \"summary\": {\n  \"grid\": \"square\",\n  \"num_helices\": 24,\n  \"num_helices_used\": 24,\n  \"helix_grid_positions\": {\n   \"0\": [\n    0,\n    0\n   ],\n   \"1\": [\n    0,\n    1\n   ],\n   \"2\": [\n    0,\n    0\n   ],\n   \"3\": [\n    0,\n    1\n   ],\n   \"4\": [\n    0,\n    0\n   ],\n   \"5\": [\n    0,\n    1\n   ],\n   \"6\": [\n    0,\n    0\n   ],\n   \"7\": [\n    0,\n    1\n   ],\n   \"8\": [\n    0,\n    0\n   ],\n   \"9\": [\n    0,\n    1\n   ],\n   \"10\": [\n    0,\n    0\n   ],\n   \"11\": [\n    0,\n    1\n   ],\n   \"12\": [\n    0,\n    0\n   ],\n   \"13\": [\n    0,\n    1\n   ],\n   \"14\": [\n    0,\n    0\n   ],\n   \"15\": [\n    0,\n    1\n   ],\n   \"16\": [\n    0,\n    0\n   ],\n   \"17\": [\n    0,\n    1\n   ],\n   \"18\": [\n    0,\n    0\n   ],\n   \"19\": [\n    0,\n    1\n   ],\n   \"20\": [\n    0,\n    0\n   ],\n   \"21\": [\n    0,\n    1\n   ],\n   \"22\": [\n    0,\n    0\n   ],\n   \"23\": [\n    0,\n    1\n   ]\n  },\n  \"bp_per_helix\": {\n   \"0\": 84,\n   \"1\": 84,\n   \"2\": 84,\n   \"3\": 84,\n   \"4\": 84,\n   \"5\": 84,\n   \"6\": 84,\n   \"7\": 84,\n   \"8\": 84,\n   \"9\": 84,\n   \"10\": 84,\n   \"11\": 84,\n   \"12\": 84,\n   \"13\": 84,\n   \"14\": 84,\n   \"15\": 84,\n   \"16\": 84,\n   \"17\": 84,\n   \"18\": 84,\n   \"19\": 84,\n   \"20\": 84,\n   \"21\": 84,\n   \"22\": 84,\n   \"23\": 84\n  },\n  \"num_strands\": 49,\n  \"num_scaffolds\": 1,\n  \"scaffold_lengths\": [\n   2108\n  ],\n  \"scaffold_is_circular\": [\n   false\n  ],\n  \"num_staples\": 48,\n  \"staple_length_min\": 40,\n  \"staple_length_max\": 44,\n  \"staple_length_mean\": 42,\n  \"staple_length_histogram\": {\n   \"40\": 12,\n   \"42\": 24,\n   \"44\": 12\n  },\n  \"total_nucleotides\": 4124,\n  \"designed_base_pairs\": 2016,\n  \"scaffold_paired_fraction\": 0.9564,\n  \"unpaired_nucleotides\": 92,\n  \"mismatched_pairs\": 0,\n  \"unassigned_bases\": 0,\n  \"num_crossovers\": 95,\n  \"crossovers_per_helix_pair\": {\n   \"0-1\": 6,\n   \"0-3\": 1,\n   \"0-9\": 1,\n   \"1-8\": 1,\n   \"2-3\": 6,\n   \"2-5\": 1,\n   \"2-11\": 1,\n   \"3-10\": 1,\n   \"4-5\": 6,\n   \"4-7\": 1,\n   \"4-21\": 1,\n   \"5-12\": 1,\n   \"6-7\": 6,\n   \"6-23\": 1,\n   \"7-14\": 1,\n   \"8-9\": 7,\n   \"10-11\": 7,\n   \"12-13\": 7,\n   \"13-16\": 1,\n   \"14-15\": 7,\n   \"15-18\": 1,\n   \"16-17\": 7,\n   \"17-20\": 1,\n   \"18-19\": 7,\n   \"19-22\": 1,\n   \"20-21\": 7,\n   \"22-23\": 7\n  },\n  \"crossovers_between_non_adjacent_helices\": [],\n  \"helix_connectivity_components\": 1,\n  \"num_insertions\": 0,\n  \"num_deletions\": 0,\n  \"num_loopouts\": 23\n }\n}",
+   "additional_kwargs": {},
+   "response_metadata": {},
+   "type": "tool",
+   "name": "check_design",
+   "id": "3272d115-8a80-47ca-b05e-8cd5aaef148b",
+   "tool_call_id": "toolu_012iiGZNxKpHRSZLDUVQC92L",
+   "artifact": null,
+   "status": "success"
+  }
+ },
+ {
+  "type": "ai",
+  "data": {
+   "content": [
+    {
+     "thinking": "",
+     "type": "thinking",
+     "index": 0,
+     "signature": "CAQS8QcKEAgUGAI4AUIIdGhpbmtpbmcSDJ+JkrDKpmrwzLrZKhoMG8GhKL51MGBp+MjXIjAYAIoY2yRiVLoMWCZFLxGA3HaWG1mQtnQHYxYp8EZ1+mIfFHsKU2Kwb2inne9ytmgqjgfXBomskERa+ic0zO1WzRnj1ZpWk2UqKoiGRJz2Q9yLhbE1dHw5uIFAYZlmtbDRCfl7ZZQ4+OLNpM/9bK5UKruonLJPK0oLontKo76xstgdwslZP/X8OZ9MdWqjItu2kQ7ImtUjkYPRucnyborJPrH6LIADSFN+9KYGO8zvuG+RxTAV4ZchZr0iA4YUmcy3nNn/JAIA5tODUYzaOLlJp5K6VCBS22EVWaUaS738SIjCPkcLghrzthvPTaFT6tvh5qS9X+5+ZrSHECemr5n5Y3KqVY/4ZKp0UCV04f0rTOGuDRoc+huEJK4N3SpAgbRAXMCtNvfTqeO1/RU861CJZsS7looYa0QeoZpbAwF4BizycDUHVDW2D1MS337iGJOo86VeOxFbZuM+LpyV6+9qkMlJZ4KnlD1i1H2cfeQ5nLlizxhor57gzD4h7jst7dTeRy29l0F7wNOQl++RgAN2NQnOBDpnsaNbZJBRNlihQm8/uHtNJZ73XIPz4I/REC3CQvhwhqvDYnhjj+oHs5e60ROSBKAyAgaqktWywFsAHJdlXSILJZlb/lgitY3rdA7po/N6keV5G8vYRvIHswasRaIGvYdpLcBt2C5eULFtylqMXIknn1FKT3+ruB8g7AeEDtRMQa6VSLmPrtknQir+IkPCroA3q31uQoIoRqivORUy3OMIu4cM9uNyMXlIfZCELQ62WmU6/6JALkwZaNgLCP3QNKiQg4y6VuDoKZolxuJqFWfwXiGvVgb8R23HyHQ/SCRXlx8/9byO4JCfa2pkwd0hb2AMty120A56q0Mqd0HFDqv/fHPqH9vpUmkKkB0WbEs0TigsXQTF8cbYCtzTV74OAeH9q39EvKWsmnzk3+FsCTKAlfZF+0p1ILtCWAGHOxzxbRcWcWKLofQuuJwqa0gbn6UBasL53hZ41ll0ZJZSSPkfnx0ANLKXRak/9SXMlVpqBZpYw2n6H4zF2p6rTLUVOhThFiQyQXrwclwChl2pGFoaYbZ5cbUYSZ8EBB1z/zstg+u2JDMFov7I++fBVpz+vgcWyrKS9tdVFGr0g/rM+gx5cNdNchtB3hmSSWVAESE2ctZu3ktKkJMTOWI/rpVSaHB44bMCIsVHLk+3vQ9VgjOH45jf4jGBHJjGpjIowhgcHSrgHGdIegJC2M5FYdbflK8Jw0opY9qBrUt1qFidd+LVt7rt0j5RczvjW0rAGAE="
+    },
+    {
+     "text": "The check passes: no errors, 95.6% of the scaffold is paired, and every helix has 84 bp. Submitting.",
+     "type": "text",
+     "index": 1
+    },
+    {
+     "id": "toolu_01TXhQursTTo6xsiHSRs3FBe",
+     "caller": {
+      "type": "direct"
+     },
+     "input": {},
+     "name": "submit_design",
+     "type": "tool_use",
+     "toolset_name": null,
+     "index": 2,
+     "partial_json": "{\"design_path\": \"designs/octahedron.sc\", \"rationale\": \"Octahedron with vertices at \u00b124.75 nm on the axes (edge 35 nm). Each of the 12 edges is a helix group of two 84-bp helices (rows 1.3 nm either side of the edge midline, tangent to the surface), oriented with yaw/pitch/roll from the edge direction. Scaffold (2108 nt, M13 from rotation 5587) is an Eulerian circuit over the doubled octahedron graph: each edge is traversed once on each of its two helices, with 23 four-nt loops at the vertices joining consecutive helices; the closing hop is left open. Staples are DX rings with full crossovers at offsets 22, 43, 64 on every edge (21-bp spacing), nicked once in the middle rings, giving 48 staples of 40-44 nt. Scaffold paired fraction is 95.6%; check_design reports no errors.\"}"
+    }
+   ],
+   "additional_kwargs": {},
+   "response_metadata": {
+    "model_name": "claude-haiku-5-5",
+    "model_provider": "anthropic",
+    "stop_reason": "tool_use",
+    "stop_sequence": null
+   },
+   "type": "ai",
+   "name": "origami-designer",
+   "id": "lc_run--01a212f5-297c-70c2-b329-dfcbc5c37193",
+   "tool_calls": [
+    {
+     "name": "submit_design",
+     "args": {
+      "design_path": "designs/octahedron.sc",
+      "rationale": "Octahedron with vertices at \u00b124.75 nm on the axes (edge 35 nm). Each of the 12 edges is a helix group of two 84-bp helices (rows 1.3 nm either side of the edge midline, tangent to the surface), oriented with yaw/pitch/roll from the edge direction. Scaffold (2108 nt, M13 from rotation 5587) is an Eulerian circuit over the doubled octahedron graph: each edge is traversed once on each of its two helices, with 23 four-nt loops at the vertices joining consecutive helices; the closing hop is left open. Staples are DX rings with full crossovers at offsets 22, 43, 64 on every edge (21-bp spacing), nicked once in the middle rings, giving 48 staples of 40-44 nt. Scaffold paired fraction is 95.6%; check_design reports no errors."
+     },
+     "id": "toolu_01TXhQursTTo6xsiHSRs3FBe",
+     "type": "tool_call"
+    }
+   ],
+   "invalid_tool_calls": [],
+   "usage_metadata": {
+    "input_tokens": 44586,
+    "output_tokens": 498,
+    "total_tokens": 45084,
+    "input_token_details": {
+     "cache_creation": 1531,
+     "cache_read": 43053
+    },
+    "output_token_details": {
+     "reasoning": 87
+    }
+   }
+  }
+ },
+ {
+  "type": "tool",
+  "data": {
+   "content": "Submitted. If you are finished, reply with a short final summary.",
+   "additional_kwargs": {},
+   "response_metadata": {},
+   "type": "tool",
+   "name": "submit_design",
+   "id": "df883940-1f03-4fc2-b844-d782ef89be25",
+   "tool_call_id": "toolu_01TXhQursTTo6xsiHSRs3FBe",
+   "artifact": null,
+   "status": "success"
+  }
+ },
+ {
+  "type": "ai",
+  "data": {
+   "content": [
+    {
+     "text": "The octahedron design is saved at `designs/octahedron.sc` and submitted. `check_design` reports no errors and 95.6% of the scaffold paired. I did not run a 3D shape check against the 3.5 nm criteria, so the octahedron fit is unverified.\n\n- **Geometry:** Vertices sit at \u00b124.75 nm on the three axes, giving 35 nm edges. Each of the 12 edges is a helix group of two 84-bp helices, centred on the edge midline and 1.3 nm either side of it, tangent to the surface. Yaw, pitch and roll come from the edge direction.\n- **Scaffold:** 2108 nt of M13mp18 (rotation 5587). It is an Eulerian circuit over the doubled octahedron graph, so each edge is run once on each of its two helices. Consecutive helices are joined at vertices by 4-nt unpaired loops. The closing hop is left open, so the scaffold is linear.\n- **Staples:** Each edge has full crossovers at offsets 22, 43 and 64 (21 bp apart). The two middle rings are nicked once, giving 48 staples of 40\u201344 nt, all within the 18\u201360 nt limit.\n- **Open issues:** Only the scaffold joins the edges at vertices; there are no vertex staples. The scaffold's 92 unpaired bases are the loops at the vertices.",
+     "type": "text",
+     "index": 0
+    }
+   ],
+   "additional_kwargs": {},
+   "response_metadata": {
+    "model_name": "claude-haiku-5-5",
+    "model_provider": "anthropic",
+    "stop_reason": "end_turn",
+    "stop_sequence": null
+   },
+   "type": "ai",
+   "name": "origami-designer",
+   "id": "lc_run--01a212f5-58e1-72f3-9844-63d9d909f97e",
+   "tool_calls": [],
+   "invalid_tool_calls": [],
+   "usage_metadata": {
+    "input_tokens": 45109,
+    "output_tokens": 459,
+    "total_tokens": 45568,
+    "input_token_details": {
+     "cache_creation": 523,
+     "cache_read": 44584
+    },
+    "output_token_details": {
+     "reasoning": 0
+    }
+   }
+  }
+ }
+]

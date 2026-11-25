@@ -1,0 +1,61 @@
+{
+ "task": "origami-wireframe/octahedron",
+ "model": "claude-haiku-5-5",
+ "seed": 2,
+ "termination": "completed",
+ "wall_time_s": 219.5,
+ "n_messages": 27,
+ "n_model_calls": 12,
+ "tool_calls": {
+  "read_file": 2,
+  "write_file": 1,
+  "run_python": 3,
+  "edit_file": 2,
+  "find_crossover_offsets": 3,
+  "check_design": 2,
+  "submit_design": 1
+ },
+ "submitted": {
+  "source": "/designs/octahedron.sc",
+  "valid": true,
+  "errors": []
+ },
+ "budget": {
+  "model_calls": 12,
+  "max_model_calls": 120,
+  "wall_timeout_s": 5400,
+  "cost_cap_usd": 15.0,
+  "notices": []
+ },
+ "usage": {
+  "claude-haiku-5-5": {
+   "input_tokens": 557818,
+   "input_token_details": {
+    "cache_read": 513737,
+    "cache_creation": 44055
+   },
+   "output_token_details": {
+    "reasoning": 34509
+   },
+   "output_tokens": 40042,
+   "total_tokens": 597860
+  }
+ },
+ "tokens": {
+  "input_tokens": 557818,
+  "output_tokens": 40042,
+  "total_tokens": 597860,
+  "cache_read_tokens": 513737
+ },
+ "api_retries": 0,
+ "final_message": "The octahedron design is saved at `designs/octahedron.sc` and submitted. The structural check passes with no errors or warnings. I did not run the shape-fit metric itself, so the 3.5 nm criteria are unverified.\n\n**Geometry**\n- Vertices sit at \u00b124.75 nm on the three axes, so each edge is 35 nm vertex to vertex.\n- Each of the 12 edges is its own helix group: two 84-bp helices (28.6 nm) side by side, 2.6 nm apart, centred on the edge line.\n- Helix ends stop about 3.2 nm short of each vertex.\n- That gives 24 helices, each 84 bp, all within the 80\u201388 bp requirement.\n\n**Scaffold**\n- One linear M13mp18 fragment (rotation 5587), 2085 nt, inside the 1950\u20132350 nt range.\n- It runs end to end through all 24 helices, with 23 three-nucleotide loopouts at the vertex hops. The last hop is left open, which gives the strand its two ends.\n- The routing was chosen by random search for a single cycle with minimal total hop length. The longest hop is about 5 nm, which a 3-nt loop has to span, so those vertex loops are the most strained part.\n- Edge orientations and vertex pairings were chosen by that search, not by hand.\n- The scaffold is 96.7% paired (2016 of 2085 nt).\n\n**Staples**\n- Within each DX pair the two helices run antiparallel, and staple crossovers join them.\n- The valid offsets depend on which helix of the pair carries the forward staple: [27, 48, 69] or [22, 43, 64]. Both sets are spaced 21 bp apart.\n- Between crossovers each staple is a 42-nt ring nicked once mid-way.\n- The end staples are U-shapes of 30\u201354 nt.\n- All 48 staples fall within 18\u201360 nt.\n\n**Open issues**\n- No staples bridge the vertices, so the vertices rely on the scaffold hops alone. The edges are held together only by the scaffold at the joints.\n- The shape criteria (90% of nucleotides within 3.5 nm of an edge, and coverage along the middle of each edge) were not measured.",
+ "cost": {
+  "total_usd": 0.03067,
+  "uncached_input_usd": 0.0,
+  "cache_read_usd": 0.00514,
+  "cache_write_5m_usd": 0.00551,
+  "cache_write_1h_usd": 0.0,
+  "output_usd": 0.02002
+ },
+ "cost_usd": 0.03067
+}
